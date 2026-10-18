@@ -1,0 +1,78 @@
+name: Isi arsip awal (backfill)
+
+# Jalankan manual sekali setelah setup: arsip harian (mode Riwayat & grafik
+# per bulan) dan data tahun-tahun pembanding. Aman dijalankan ulang.
+on:
+  workflow_dispatch:
+    inputs:
+      mulai:
+        description: "Arsip harian mulai tanggal (YYYY-MM-DD; kosongkan = 2026-01-01)"
+        required: false
+        default: ""
+      years:
+        description: "Tahun yang diisi, pisahkan dengan spasi (kosongkan = default di config + tahun berjalan)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: perbarui-data
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Pasang paket
+        run: pip install -r requirements.txt
+
+      - name: Unduh batas kabupaten/kota (hanya bila belum ada)
+        if: hashFiles('boundaries/kabupaten.geojson') == ''
+        run: python -m pipeline.fetch_boundaries || echo "::warning::Batas kabupaten gagal diunduh; level kabupaten dilewati"
+
+      - name: Isi arsip harian (mode Riwayat)
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+          CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+          MULAI: ${{ github.event.inputs.mulai }}
+        run: |
+          if [ -n "$MULAI" ]; then
+            python -m pipeline.backfill_harian --mulai "$MULAI"
+          else
+            python -m pipeline.backfill_harian
+          fi
+
+      - name: Isi arsip tahun-tahun pembanding
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          YEARS: ${{ github.event.inputs.years }}
+        run: |
+          if [ -n "$YEARS" ]; then
+            python -m pipeline.backfill --years $YEARS
+          else
+            python -m pipeline.backfill
+          fi
+
+      - name: Simpan arsip ke repositori
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/archive boundaries
+          if git diff --cached --quiet; then
+            echo "Arsip tidak berubah"
+          else
+            git commit -m "Isi arsip awal $(date -u +%Y-%m-%d)"
+            git pull --rebase --autostash
+            git push
+          fi
