@@ -86,7 +86,7 @@ Sekali saja (atau untuk mengisi celah): pipeline/backfill_harian.py
 | `data/archive/raw/<tahun>/<tanggal>.csv.gz` | Semua deteksi nominal/high per hari, lengkap dengan provinsi, kabupaten, dan konteks |
 | `data/archive/harian/<tahun>/<tanggal>.json` | Titik api unik per hari (sesudah deduplikasi) untuk mode Riwayat, ±60 byte per titik |
 | `data/archive/harian/indeks.json` | Daftar tanggal yang tersedia beserta total dan jumlah satelitnya |
-| `data/archive/aerosol/<tahun>/<tanggal>.png` | Citra indeks aerosol Sentinel-5P per hari WIB |
+| `data/archive/aerosol_ai/<tahun>/<tanggal>.png` | Indeks aerosol Sentinel-5P per hari WIB. Gambar menyimpan **nilai** indeks (abu-abu 1–255 = 0,5–6,0), bukan warna; dashboard yang mewarnainya, jadi warna bisa diganti di `CONFIG.aerosolRamps` (`index.html`) tanpa mengunduh ulang |
 
 Di kedua CSV harian, kolom `nh` berisi jumlah titik nominal+tinggi dan kolom `h` jumlah titik tinggi saja. Baris `__semua__` adalah total nasional.
 
@@ -128,6 +128,8 @@ Hasilnya:
 ---
 
 ## Menjalankan di komputer sendiri
+
+Kedua perintah *backfill* menjalankan 4 permintaan FIRMS serentak, menyimpan hasil tiap bulan, dan mencetak perkiraan sisa waktu. Satu permintaan (5 hari, seluruh Indonesia) bisa makan 15–120 detik di server FIRMS, jadi pengisian awal memang perlu waktu. Kalau terhenti atau ada bulan yang gagal, jalankan perintah yang sama lagi: bulan yang sudah ada dilewati. Tambahkan `--pekerja 6` untuk mempercepat bila koneksi kuat. Tahun pembanding juga boleh diisi bertahap (mis. `--years 2023 2024 2025` dulu); rata-rata di grafik hanya memakai bulan yang sudah lengkap.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

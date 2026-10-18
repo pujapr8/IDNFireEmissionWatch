@@ -15,7 +15,8 @@ import pandas as pd
 from . import config as C
 
 DAY_DIR = C.ARCHIVE_DIR / "harian"
-AEROSOL_DIR = C.ARCHIVE_DIR / "aerosol"
+AEROSOL_DIR = C.ARCHIVE_DIR / C.AEROSOL_ARCHIVE_DIRNAME
+OLD_AEROSOL_DIR = C.ARCHIVE_DIR / "aerosol"  # format lama (warna tertanam), dihapus otomatis
 FIELDS = ["lon", "lat", "t_first", "t_last", "high", "frp", "sats", "n_det",
           "prov", "kab", "ctx", "cell"]
 
@@ -89,6 +90,19 @@ def write_day_json(d: date, groups: pd.DataFrame, sats: list[str], prov_names: l
     return str(path.relative_to(C.ROOT))
 
 
+def missing_aerosol_days() -> list[date]:
+    """Tanggal yang punya arsip harian tetapi belum punya citra aerosol, terbaru dulu."""
+    out = []
+    for f in DAY_DIR.glob("*/*.json"):
+        try:
+            d = date.fromisoformat(f.stem)
+        except ValueError:
+            continue
+        if not aerosol_path(d).exists():
+            out.append(d)
+    return sorted(out, reverse=True)
+
+
 def build_index() -> dict:
     """Daftar tanggal yang punya arsip harian, untuk slider dashboard."""
     entries = []
@@ -107,6 +121,8 @@ def build_index() -> dict:
         "last": entries[-1]["d"] if entries else None,
         "aerosol_bounds": [[C.AEROSOL_BBOX[1], C.AEROSOL_BBOX[0]],
                            [C.AEROSOL_BBOX[3], C.AEROSOL_BBOX[2]]],
+        "aerosol_dir": C.AEROSOL_ARCHIVE_DIRNAME,
+        "aerosol_encoding": C.AEROSOL_ENCODING,
         "days": entries,
     }
     text = json.dumps(idx, ensure_ascii=False, separators=(",", ":"))

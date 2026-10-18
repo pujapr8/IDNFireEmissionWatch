@@ -26,44 +26,22 @@ log = logging.getLogger("aerosol")
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
 
-# Hanya aerosol penyerap (asap, debu) yang digambar: AI < 0,5 transparan.
-# Satu hue (ungu) supaya tidak tertukar dengan titik api (merah) dan
-# kategori ISPU. Ditulis gaya ES5 agar aman di mesin evalscript.
+# Hanya aerosol penyerap (asap, debu) yang disimpan: AI < min transparan.
+# Gambar berisi nilai indeks yang dikodekan ke 1..255 (lihat
+# config.AEROSOL_ENCODING); dashboard yang mewarnainya. Gaya ES5 agar aman di
+# mesin evalscript.
 EVALSCRIPT = """//VERSION=3
 function setup() {
-  return { input: ["AER_AI_340_380", "dataMask"], output: { bands: 4 } };
+  return { input: ["AER_AI_340_380", "dataMask"], output: { bands: 4, sampleType: "UINT8" } };
 }
-var STOPS = [
-  [0.5, [227, 200, 255]],
-  [1.5, [192, 140, 240]],
-  [2.5, [155, 89, 217]],
-  [4.0, [122, 47, 191]]
-];
-function ramp(v) {
-  if (v <= STOPS[0][0]) return STOPS[0][1];
-  for (var i = 1; i < STOPS.length; i++) {
-    if (v <= STOPS[i][0]) {
-      var a = STOPS[i - 1], b = STOPS[i];
-      var t = (v - a[0]) / (b[0] - a[0]);
-      return [a[1][0] + t * (b[1][0] - a[1][0]),
-              a[1][1] + t * (b[1][1] - a[1][1]),
-              a[1][2] + t * (b[1][2] - a[1][2])];
-    }
-  }
-  return STOPS[STOPS.length - 1][1];
-}
+var MIN = __MIN__, MAX = __MAX__;
 function evaluatePixel(s) {
   var v = s.AER_AI_340_380;
-  if (!s.dataMask || v < 0.5) return [0, 0, 0, 0];
-  var c = ramp(v);
-  var alpha = Math.min(0.85, 0.3 + (v - 0.5) * 0.22);
-  return [c[0] / 255, c[1] / 255, c[2] / 255, alpha];
+  if (!s.dataMask || v < MIN) return [0, 0, 0, 0];
+  var c = 1 + Math.round((Math.min(v, MAX) - MIN) / (MAX - MIN) * 254);
+  return [c, c, c, 255];
 }
-"""
-
-LEGEND = {"min": 0.5, "max": 4.0,
-          "stops": ["#e3c8ff", "#c08cf0", "#9b59d9", "#7a2fbf"],
-          "labels": ["0,5 tipis", "2", "4+ pekat"]}
+""".replace("__MIN__", repr(C.AEROSOL_ENCODING["min"])).replace("__MAX__", repr(C.AEROSOL_ENCODING["max"]))
 
 
 def _merc(lon: float, lat: float) -> tuple[float, float]:
@@ -159,7 +137,7 @@ def build_aerosol(now_utc: pd.Timestamp, out_dir) -> dict | None:
         "to_utc": t_to.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "product": "Sentinel-5P TROPOMI, indeks aerosol UV 340/380 nm (NRTI)",
         "source": "Copernicus Data Space Ecosystem",
-        "legend": LEGEND,
+        "encoding": C.AEROSOL_ENCODING,
     }
 
 

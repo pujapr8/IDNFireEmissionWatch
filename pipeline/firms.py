@@ -24,14 +24,18 @@ class FirmsError(RuntimeError):
 # ---------------------------------------------------------------------------
 # Unduh
 # ---------------------------------------------------------------------------
-def _get_csv(url: str, retries: int = 3) -> pd.DataFrame:
+# FIRMS kadang butuh >2 menit sebelum mulai mengirim data area besar
+TIMEOUT = (30, 300)  # (sambung, baca) detik
+
+
+def _get_csv(url: str, retries: int = 3, header: str = "latitude") -> pd.DataFrame:
     last = None
     for attempt in range(retries):
         try:
-            r = requests.get(url, timeout=120)
+            r = requests.get(url, timeout=TIMEOUT)
             text = r.text.strip()
             # FIRMS mengembalikan teks error biasa (mis. "Invalid MAP_KEY.")
-            if r.status_code != 200 or not text or "latitude" not in text.split("\n", 1)[0]:
+            if r.status_code != 200 or not text or header not in text.split("\n", 1)[0]:
                 if text == "" and r.status_code == 200:
                     return pd.DataFrame()
                 raise FirmsError(f"HTTP {r.status_code}: {text[:200]}")
@@ -45,7 +49,21 @@ def _get_csv(url: str, retries: int = 3) -> pd.DataFrame:
                 log.warning("FIRMS belum merespons dengan benar (%s); mencoba lagi (%d/%d)",
                             type(e).__name__, attempt + 2, retries)
             time.sleep(5 * (attempt + 1))
-    raise FirmsError(f"{_redact(url)} -> {last}")
+    # Pesan error requests memuat URL lengkap; jangan sampai kunci ikut tercetak
+    msg = str(last)
+    key = _key_in(url)
+    if key:
+        msg = msg.replace(key, "***")
+    raise FirmsError(f"{_redact(url)} -> {msg}")
+
+
+def _key_in(url: str) -> str | None:
+    parts = url.split("/")
+    if "csv" in parts:
+        i = parts.index("csv")
+        if i + 1 < len(parts) and parts[i + 1]:
+            return parts[i + 1]
+    return None
 
 
 def _redact(url: str) -> str:
@@ -94,9 +112,7 @@ def fetch_range(map_key: str, source: str, first: date, last: date,
 
 def data_availability(map_key: str) -> pd.DataFrame:
     url = f"{C.FIRMS_BASE}/api/data_availability/csv/{map_key}/ALL"
-    r = requests.get(url, timeout=60)
-    r.raise_for_status()
-    return pd.read_csv(io.StringIO(r.text))
+    return _get_csv(url, header="data_id")
 
 
 # ---------------------------------------------------------------------------

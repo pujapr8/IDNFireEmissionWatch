@@ -318,8 +318,9 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
 <header class="site-head wrap">
   <div class="row">
     <div>
-      <h1>Indonesia Fire &amp; Emissions Watch</h1>
-      <p class="lede">By <b>Puja Pratama Ridwan</b></p>
+      <p class="kicker">Indonesia · Kebakaran hutan &amp; lahan</p>
+      <h1>Pantau Titik Api &amp; Asap</h1>
+      <p class="lede">Titik panas terdeteksi satelit VIIRS (NASA FIRMS) beserta arah angin dan perkiraan kualitas udara, diperbarui otomatis beberapa kali sehari.</p>
       <div class="meta" id="meta"></div>
     </div>
     <button class="icon-btn" id="themeBtn" type="button" aria-label="Ganti tema terang/gelap" title="Ganti tema">
@@ -444,7 +445,7 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
   <section class="card" aria-labelledby="trendTitle">
     <div class="trend-head">
       <div>
-        <h2 id="trendTitle">Dibanding bulan-bulan sebelumnya</h2>
+        <h2 id="trendTitle">Dibanding tahun-tahun sebelumnya</h2>
         <p class="sub" id="trendSub" style="margin-bottom:4px"></p>
       </div>
       <div class="mini-seg" role="group" aria-label="Tampilan grafik" id="segTrend">
@@ -1860,7 +1861,7 @@ function renderMethod() {
   box.append(
     ...sec('Apa yang dihitung',
       p('Titik api (hotspot) adalah piksel yang oleh satelit terdeteksi jauh lebih panas daripada sekitarnya. Titik api adalah indikasi kebakaran, bukan kepastian; luas area terbakar tidak bisa dihitung dari jumlah titik.'),
-      p(`Data berasal dari sensor VIIRS (piksel 375 m) di satelit ${st}, melalui layanan NASA FIRMS. Hanya deteksi dengan tingkat keyakinan nominal dan tinggi yang dipakai; deteksi berkeyakinan rendah dikecualikan dari analisis.`)),
+      p(`Data berasal dari sensor VIIRS (piksel 375 m) di satelit ${st}, melalui layanan NASA FIRMS. Hanya deteksi dengan tingkat keyakinan nominal dan tinggi yang dipakai; deteksi berkeyakinan rendah dibuang.`)),
     ...sec('Cara menghitung',
       el('ul', null,
         el('li', { text: `Deteksi dari beberapa satelit di sel grid yang sama (~400 m, ${String(S.grid_deg).replace('.', ',')}°) dihitung satu titik, supaya satu kebakaran tidak terhitung dua-tiga kali.` }),
@@ -1869,7 +1870,7 @@ function renderMethod() {
         el('li', { text: 'Pilihan "Tinggi saja" menampilkan titik yang setidaknya sekali terdeteksi dengan keyakinan tinggi.' }),
         el('li', { text: `Perbandingan antartahun memakai satu satelit (${S.ref_label}) agar sebanding; satelit NOAA-20 dan NOAA-21 belum ada pada tahun-tahun awal.` }))),
     ...sec('Riwayat harian',
-      p('Mode Riwayat menampilkan arsip harian sejak 1 Januari 2026 dengan cara hitung yang sama. Data hari-hari lama memakai produk standar NASA (SP) bila sudah tersedia, sehingga angkanya bisa sedikit berbeda dari tampilan near real-time pada hari itu. Untuk durasi 30 hari, peta menampilkan kepadatan lokasi titik api per sel ±11 km.')),
+      p('Mode Riwayat menampilkan arsip harian sejak 1 Januari 2026 dengan cara hitung yang sama. Data hari-hari lama memakai produk standar NASA (SP) bila sudah tersedia, sehingga angkanya bisa sedikit berbeda dari tampilan near real-time pada hari itu. Satelit NOAA-21 baru tersedia mulai tanggal tertentu; hari yang hanya memakai dua satelit diberi catatan. Untuk durasi 30 hari, peta menampilkan kepadatan lokasi titik api per sel ±11 km.')),
     ...sec('Keterbatasan',
       el('ul', null,
         el('li', { text: 'Awan tebal, asap pekat, dan kanopi hutan dapat menutupi api sehingga tidak terdeteksi.' }),
@@ -1890,11 +1891,12 @@ function renderMethod() {
         el('li', null, 'Peta dasar: ', el('a', { href: 'https://openfreemap.org/', text: 'OpenFreeMap' }), ', © OpenMapTiles, data © OpenStreetMap.'))),
     ...sec('Unduh data',
       el('ul', null,
-        el('li', null, 'Klik ', el('b', { text: 'Unduh CSV' }), ' di atas untuk langsung mengunduh data sesuai filter yang dipilih'),
-        el('li', null, 'Untuk hitungan harian per provinsi: ', el('a', { href: CONFIG.archiveUrl + `daily_${S.generated_wib.slice(0, 4)}.csv`, text: `daily_${S.generated_wib.slice(0, 4)}.csv` }))))
+        el('li', null, 'Titik api sesuai filter yang sedang dipilih: tombol ', el('b', { text: 'Unduh CSV' }), ' di atas.'),
+        el('li', null, 'Hitungan harian per provinsi: ', el('a', { href: CONFIG.archiveUrl + `daily_${S.generated_wib.slice(0, 4)}.csv`, text: `daily_${S.generated_wib.slice(0, 4)}.csv` }), '.'),
+        el('li', null, 'Deteksi mentah per hari: ', el('code', { text: 'data/archive/raw/<tahun>/<tanggal>.csv.gz' }), '.')))
   );
   const f = $('#footer');
-  f.append(el('div', { text: (CONFIG.publisher ? CONFIG.publisher + ' · ' : '') + `Diperbarui ${fmtWib(new Date(S.generated_utc))}. Dikembangkan oleh Puja Pratama Ridwan dengan asistensi Opus 5.5` }));
+  f.append(el('div', { text: (CONFIG.publisher ? CONFIG.publisher + ' · ' : '') + `Diperbarui ${fmtWib(new Date(S.generated_utc))}. Data titik api: NASA FIRMS.` }));
 }
 
 /* ---------------- unduh CSV ---------------- */

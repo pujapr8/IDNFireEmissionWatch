@@ -7,8 +7,11 @@
 - Tiga satelit VIIRS. Untuk tiap satelit dipakai data Standard Processing (SP)
   bila sudah tersedia, sisanya near real-time (NRT). Hari yang hanya tercakup
   sebagian satelit dicatat di arsip (dashboard menampilkan catatannya).
-- Diproses per bulan supaya hemat memori; bulan yang semua harinya sudah ada
-  dilewati, jadi aman dihentikan lalu dijalankan lagi.
+- Beberapa permintaan FIRMS berjalan serentak (--pekerja, default 4) dan
+  terus mengalir lintas bulan. Hasil disimpan tiap bulan selesai; bulan yang
+  semua harinya sudah ada dilewati, jadi aman dihentikan lalu dijalankan lagi.
+  Bulan yang gagal (mis. FIRMS sedang lambat) dilewati dan dicoba lagi pada
+  run berikutnya.
 - Ikut menulis hitungan harian (3 satelit & satelit referensi) dan, bila kunci
   CDSE tersedia, citra aerosol Sentinel-5P per hari.
 """
@@ -18,6 +21,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
@@ -30,6 +34,10 @@ from . import firms as F
 from . import harian as HR
 
 log = logging.getLogger("backfill_harian")
+
+
+def fmt_range(r) -> str:
+    return f"{r[0]} s.d. {r[1]}" if r else "tidak ada"
 
 
 def availability(key: str) -> dict:
@@ -73,11 +81,39 @@ def month_ranges(first: date, last: date):
         cur = nxt
 
 
+def fmt_duration(sec: float) -> str:
+    m = max(1, round(sec / 60))
+    if m < 60:
+        return f"{m} menit"
+    return f"{m // 60} jam {m % 60} menit"
+
+
+class Progress:
+    """Catat kemajuan per bulan dan perkiraan sisa waktu."""
+
+    def __init__(self, total: int):
+        self.total, self.done, self.t0 = total, 0, time.time()
+
+    def step(self) -> str:
+        self.done += 1
+        el = time.time() - self.t0
+        left = el / self.done * (self.total - self.done)
+        tail = f"perkiraan sisa ±{fmt_duration(left)}" if self.done < self.total else "bulan terakhir"
+        return f"progres {self.done}/{self.total} bulan, {tail}"
+
+
+def days_covered(results) -> set:
+    out = set()
+    for a, b in results:
+        out.update(a + timedelta(days=i) for i in range((b - a).days + 1))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--mulai", default=C.HISTORY_START)
     ap.add_argument("--sampai", default=None, help="default: kemarin (WIB)")
-    ap.add_argument("--pekerja", type=int, default=3, help="permintaan FIRMS paralel")
+    ap.add_argument("--pekerja", type=int, default=4, help="permintaan FIRMS serentak")
     ap.add_argument("--ulang", action="store_true", help="tulis ulang hari yang sudah ada")
     ap.add_argument("--tanpa-aerosol", action="store_true")
     args = ap.parse_args(argv)
@@ -91,7 +127,7 @@ def main(argv=None):
 
     av = availability(key)
     for sat in C.SATELLITES:
-        log.info("%s: SP %s, NRT %s", sat, av.get(f"{sat}_SP"), av.get(f"{sat}_NRT"))
+        log.info("%s: SP %s, NRT %s", sat, fmt_range(av.get(f"{sat}_SP")), fmt_range(av.get(f"{sat}_NRT")))
 
     provinces = F.load_provinces()
     assign = F.Assigner(provinces)
@@ -105,64 +141,113 @@ def main(argv=None):
         aer_client = AE.Client(*AE.credentials())
     elif not args.tanpa_aerosol:
         log.info("kunci CDSE tidak ada; arsip aerosol dilewati")
+    if aer_client is not None and HR.OLD_AEROSOL_DIR.exists():
+        import shutil
+        shutil.rmtree(HR.OLD_AEROSOL_DIR)
+        log.info("citra aerosol format lama dihapus; diunduh ulang dalam format baru")
 
+    months = []
     for m_first, m_last in month_ranges(first, last):
         days = [m_first + timedelta(days=i) for i in range((m_last - m_first).days + 1)]
         todo = days if args.ulang else [d for d in days if not HR.day_path(d).exists()]
-        if not todo:
-            log.info("%s: sudah lengkap, dilewati", m_first.strftime("%Y-%m"))
-        else:
-            # 1 Jan WIB dimulai 31 Des 17.00 UTC, jadi tarik mulai sehari sebelumnya
-            u_first, u_last = min(todo) - timedelta(days=1), max(todo)
-            jobs = [(sat, *c) for sat in C.SATELLITES for c in plan(sat, u_first, u_last, av)]
-            log.info("%s: %d hari, %d permintaan FIRMS", m_first.strftime("%Y-%m"), len(todo), len(jobs))
+        months.append((m_first, days, todo))
+    n_todo = sum(1 for m in months if m[2])
+    if n_todo:
+        log.info("%d bulan perlu diunduh, %d permintaan FIRMS serentak", n_todo, args.pekerja)
+    prog = Progress(n_todo)
 
-            def run(job):
-                sat, src, a, b = job
-                raw = F.fetch(key, src, (b - a).days + 1, a, C.FIRMS_MODE)
-                kept, _ = F.filter_confidence(F.normalize(raw, src))
-                return sat, a, b, kept
+    def run(job):
+        sat, src, a, b = job
+        raw = F.fetch(key, src, (b - a).days + 1, a, C.FIRMS_MODE)
+        kept, _ = F.filter_confidence(F.normalize(raw, src))
+        return sat, a, b, kept
 
-            covered: dict[str, set] = {sat: set() for sat in C.SATELLITES}
-            frames = []
-            with ThreadPoolExecutor(max_workers=max(1, args.pekerja)) as ex:
-                for sat, a, b, kept in ex.map(run, jobs):
-                    covered[sat].update(a + timedelta(days=i) for i in range((b - a).days + 1))
-                    if len(kept):
-                        frames.append(kept)
-            det = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-            if len(det):
-                det = det.drop_duplicates(["latitude", "longitude", "t_utc", "source"])
-            det, outside = F.attach_regions(det, assign, kabupaten, ctx_layers, drop_outside=True)
-            groups = F.dedup_daily(det)
-
-            changed = []
-            for d in todo:
-                # Satelit dihitung tersedia bila kedua tanggal UTC yang membentuk hari WIB tercakup
-                sats = [C.SATELLITES[s]["label"] for s in C.SATELLITES
-                        if d in covered[s] and d - timedelta(days=1) in covered[s]]
-                p = HR.write_day_json(d, groups, sats, prov_names, kab_names, ctx_layers)
-                if p:
-                    changed.append(p)
-                if len(det):
-                    p = A.write_raw_day(d, det, prov_names, kab_names, ctx_layers)
-                    if p:
-                        changed.append(p)
-            changed += A.upsert_year_files("daily", A.daily_counts(groups, prov_names, todo))
-            if len(det):
-                ref = det[det["source"].str.startswith(ref_prefix)]
-                ref_groups = F.dedup_daily(ref) if len(ref) else ref
+    failed = []
+    with ThreadPoolExecutor(max_workers=max(1, args.pekerja)) as ex:
+        # Semua permintaan diantrikan sekaligus supaya pekerja tidak menganggur
+        # di pergantian bulan; hasilnya tetap diolah berurutan per bulan.
+        futs = {}
+        for m_first, days, todo in months:
+            if todo:
+                # 1 Jan WIB dimulai 31 Des 17.00 UTC, jadi tarik mulai sehari sebelumnya
+                u_first, u_last = min(todo) - timedelta(days=1), max(todo)
+                jobs = [(sat, *c) for sat in C.SATELLITES for c in plan(sat, u_first, u_last, av)]
+                futs[m_first] = [ex.submit(run, j) for j in jobs]
+        for m_first, days, todo in months:
+            label = m_first.strftime("%Y-%m")
+            if not todo:
+                log.info("%s: sudah lengkap, dilewati", label)
             else:
-                ref_groups = det
-            changed += A.upsert_year_files("ref_daily", A.daily_counts(ref_groups, prov_names, todo))
-            n_days = groups[groups["date_wib"].isin(todo)] if len(groups) else groups
-            log.info("%s selesai: %d titik unik, %d di luar Indonesia dibuang, %d file berubah",
-                     m_first.strftime("%Y-%m"), len(n_days), outside, len(changed))
-        if aer_client is not None:
-            AE.archive_days(days, aer_client, overwrite=args.ulang)
-        HR.build_index()
+                try:
+                    results = [f.result() for f in futs.pop(m_first)]
+                except Exception as e:  # noqa: BLE001
+                    log.error("%s gagal, dilewati (dicoba lagi pada run berikutnya): %s",
+                              label, str(e).replace(key, "***"))
+                    failed.append(label)
+                    results = None
+                if results is not None:
+                    process_month(label, todo, results, prov_names, kab_names, ctx_layers,
+                                  assign, kabupaten, ref_prefix, prog)
+            if aer_client is not None:
+                try:
+                    AE.archive_days(days, aer_client, overwrite=args.ulang)
+                except Exception as e:  # noqa: BLE001
+                    log.error("%s: arsip aerosol gagal: %s", label, e)
+            HR.build_index()
 
-    log.info("Selesai. Jalankan `python -m pipeline.update` supaya dashboard memakai arsip baru.")
+    if failed:
+        log.warning("%d bulan gagal (%s). Jalankan perintah yang sama lagi untuk melanjutkan.",
+                    len(failed), ", ".join(failed))
+    else:
+        log.info("Selesai. Jalankan `python -m pipeline.update` supaya dashboard memakai arsip baru.")
+
+
+def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
+                  assign, kabupaten, ref_prefix, prog):
+    covered = {sat: set() for sat in C.SATELLITES}
+    frames = []
+    for sat, a, b, kept in results:
+        covered[sat] |= days_covered([(a, b)])
+        if len(kept):
+            frames.append(kept)
+    det = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if len(det):
+        det = det.drop_duplicates(["latitude", "longitude", "t_utc", "source"])
+    det, outside = F.attach_regions(det, assign, kabupaten, ctx_layers, drop_outside=True)
+    groups = F.dedup_daily(det)
+
+    def has(sat, d):
+        # Satelit dihitung tersedia bila kedua tanggal UTC yang membentuk hari WIB tercakup
+        return d in covered[sat] and d - timedelta(days=1) in covered[sat]
+
+    changed, written, empty = [], [], []
+    for d in todo:
+        sats = [C.SATELLITES[s]["label"] for s in C.SATELLITES if has(s, d)]
+        if not sats:
+            empty.append(d)  # belum ada data satu satelit pun; dicoba lagi lain kali
+            continue
+        written.append(d)
+        p = HR.write_day_json(d, groups, sats, prov_names, kab_names, ctx_layers)
+        if p:
+            changed.append(p)
+        if len(det):
+            p = A.write_raw_day(d, det, prov_names, kab_names, ctx_layers)
+            if p:
+                changed.append(p)
+    changed += A.upsert_year_files("daily", A.daily_counts(groups, prov_names, written))
+    ref_days = [d for d in written if has(C.REF_SATELLITE, d)]
+    if len(det):
+        ref = det[det["source"].str.startswith(ref_prefix)]
+        ref_groups = F.dedup_daily(ref) if len(ref) else ref
+    else:
+        ref_groups = det
+    changed += A.upsert_year_files("ref_daily", A.daily_counts(ref_groups, prov_names, ref_days))
+    n_days = groups[groups["date_wib"].isin(written)] if len(groups) else groups
+    if empty:
+        log.warning("%s: %d hari tanpa data satelit, dilewati: %s", label, len(empty),
+                    ", ".join(d.isoformat() for d in empty[:5]) + (" ..." if len(empty) > 5 else ""))
+    log.info("%s selesai: %d titik unik, %d di luar Indonesia dibuang · %s",
+             label, len(n_days), outside, prog.step())
 
 
 if __name__ == "__main__":

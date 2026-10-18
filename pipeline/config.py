@@ -148,6 +148,12 @@ WIND_FRAMES_H = [0, 12, 24]  # jam ke depan dari jam terdekat
 # Indeks aerosol Sentinel-5P (Copernicus Data Space): satu PNG per pembaruan
 AEROSOL_BBOX = (93.0, -12.0, 142.5, 9.0)  # W, S, E, N
 AEROSOL_WIDTH_PX = 1600
+# Citra aerosol menyimpan NILAI indeks, bukan warna: piksel 1..255 = AI min..max
+# (linear), 0 = transparan (AI < min, awan tebal, atau di luar lintasan).
+# Warnanya diatur di index.html (AER_RAMPS), jadi bisa diganti tanpa unduh ulang.
+AEROSOL_ENCODING = {"type": "ai_u8", "min": 0.5, "max": 6.0}
+AEROSOL_ARCHIVE_DIRNAME = "aerosol_ai"
+AEROSOL_CATCHUP_PER_RUN = 50  # maks. citra arsip yang belum ada, diunduh per pembaruan
 
 # Kategori mengikuti ambang ISPU PM2.5 (rata-rata 24 jam)
 ISPU_PM25 = [

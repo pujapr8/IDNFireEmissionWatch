@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import shutil
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -26,12 +28,42 @@ from . import weather as W
 log = logging.getLogger("update")
 
 
+def fetch_all(map_key: str, mode: str, first, older_n: int) -> dict:
+    """Tarik semua bagian (3 satelit x 2 rentang tanggal) serentak.
+    Hasil: {sumber: [DataFrame, ...]} atau {sumber: Exception} bila gagal."""
+    jobs = []
+    for src in C.SOURCES:
+        jobs.append((src, 5, None))
+        if older_n > 0:
+            jobs.append((src, older_n, first))
+    out: dict = {src: [] for src in C.SOURCES}
+    with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
+        futs = [(src, ex.submit(F.fetch, map_key, src, n, start, mode)) for src, n, start in jobs]
+        for src, fut in futs:
+            try:
+                df = fut.result()
+                if not isinstance(out[src], Exception):
+                    out[src].append(df)
+            except Exception as e:  # noqa: BLE001
+                out[src] = e
+    return out
+
+
 def collect(map_key: str | None, offline: Path | None, today_utc):
     """Kembalikan (deteksi gabungan yang lolos filter, status per sumber, mode)."""
     first = today_utc - timedelta(days=C.LIVE_DAYS - 1)
     older_n = C.LIVE_DAYS - 5
     frames, status = [], []
     mode = C.FIRMS_MODE
+    fetched = {}
+    if not offline:
+        fetched = fetch_all(map_key, mode, first, older_n)
+        bad = [v for v in fetched.values() if isinstance(v, Exception)]
+        if mode == "country" and bad and not any("MAP_KEY" in str(e) for e in bad):
+            log.warning("endpoint country gagal (%s); beralih ke area",
+                        str(bad[0]).replace(map_key, "***"))
+            mode = "area"
+            fetched = fetch_all(map_key, mode, first, older_n)
     for src, meta in C.SOURCES.items():
         st = {"key": src, "label": meta["label"], "ok": False}
         try:
@@ -40,17 +72,9 @@ def collect(map_key: str | None, offline: Path | None, today_utc):
                 raw = pd.read_csv(path) if path.exists() else pd.DataFrame()
                 mode = "offline"
             else:
-                try:
-                    parts = [F.fetch(map_key, src, 5, None, mode),
-                             F.fetch(map_key, src, older_n, first, mode)]
-                except F.FirmsError as e:
-                    if mode == "country" and "MAP_KEY" not in str(e):
-                        log.warning("endpoint country gagal (%s); beralih ke area", e)
-                        mode = "area"
-                        parts = [F.fetch(map_key, src, 5, None, mode),
-                                 F.fetch(map_key, src, older_n, first, mode)]
-                    else:
-                        raise
+                parts = fetched[src]
+                if isinstance(parts, Exception):
+                    raise parts
                 raw = pd.concat([p for p in parts if len(p)], ignore_index=True) \
                     if any(len(p) for p in parts) else pd.DataFrame()
             norm = F.normalize(raw, src)
@@ -119,7 +143,7 @@ def main(argv=None):
     prov_names = provinces["prov_name"].tolist()
     kab_names = kabupaten["kab_name"].tolist() if kabupaten is not None else []
 
-    log.info("Mulai: menarik data FIRMS 3 satelit (6 permintaan; biasanya 1-5 menit)")
+    log.info("Mulai: menarik data FIRMS 3 satelit (6 permintaan serentak; biasanya 1-3 menit)")
     det, status, mode = collect(map_key, args.offline, today_utc)
     if not any(s["ok"] for s in status):
         sys.exit("Semua sumber FIRMS gagal; dashboard lama dibiarkan.")
@@ -154,8 +178,24 @@ def main(argv=None):
                     changed.append(p)
         if not args.skip_weather:
             changed += AE.archive_days(final_dates)
+    if not args.skip_weather and AE.credentials():
+        # Pindah dari citra berwarna (format lama) ke citra nilai indeks
+        if HR.OLD_AEROSOL_DIR.exists():
+            shutil.rmtree(HR.OLD_AEROSOL_DIR)
+            changed.append("data/archive/aerosol/ (format lama, dihapus)")
+            log.info("citra aerosol format lama dihapus; arsip diunduh ulang bertahap")
+        # Lengkapi arsip aerosol yang belum ada, beberapa hari per pembaruan
+        missing = HR.missing_aerosol_days()
+        if missing:
+            n = min(len(missing), C.AEROSOL_CATCHUP_PER_RUN)
+            log.info("aerosol: %d hari arsip belum punya citra; mengunduh %d terbaru", len(missing), n)
+            changed += AE.archive_days(missing[:n])
     HR.build_index()
-    log.info("arsip berubah: %s", changed or "tidak ada")
+    if changed:
+        log.info("arsip berubah: %d file (%s%s)", len(changed), ", ".join(changed[:4]),
+                 ", ..." if len(changed) > 4 else "")
+    else:
+        log.info("arsip berubah: tidak ada")
 
     # ---------------- keluaran live ----------------
     out = C.OUT_DIR
