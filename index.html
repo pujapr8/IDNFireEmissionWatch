@@ -452,6 +452,7 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
       </div>
       <div class="mini-seg" role="group" aria-label="Tampilan grafik" id="segTrend">
         <button type="button" data-v="bulan">Per bulan</button>
+        <button type="button" data-v="tgl">Tanggal sama</button>
         <button type="button" data-v="cum">Kumulatif</button>
         <button type="button" data-v="daily">Harian (rata-rata 7 hari)</button>
       </div>
@@ -610,7 +611,7 @@ const state = {
   base: 'map', imgDate: null,
   layers: { hotspots: true, boundaries: true, wind: !isMobile(), air: true, aerosol: true },
   windFrame: 0, ctx: {}, trend: 'bulan', rankAll: false, kabN: 10,
-  mode: 'live', histEnd: null, histDays: 1, trendBasis: null, trendCmp: 'set'
+  mode: 'live', histEnd: null, histDays: 1, trendBasis: null, trendCmp: 'set', cmpDate: null, cmpWin: 1
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
@@ -1556,6 +1557,7 @@ function renderTrend() {
   document.querySelectorAll('#segTrend button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.trend)));
   $('#trendControls').replaceChildren();
   if (state.trend === 'bulan' && YOY && (Object.keys(YOY.series || {}).length || YOY.multi)) return renderMonthly(box, legend, ytdT);
+  if (state.trend === 'tgl' && YOY && Object.keys(YOY.series || {}).length) return renderSameDate(box, legend, ytdT);
   if (!YOY || !Object.keys(YOY.series || {}).length) {
     box.append(el('div', { class: 'empty', text: 'Data perbandingan antartahun belum tersedia. Jalankan pengisian arsip (backfill) satu kali.' }));
     $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
@@ -1863,6 +1865,105 @@ function renderMonthly(box, legend, ytdT) {
   $('#trendNote').textContent = 'Jumlah per bulan = jumlah titik api harian selama sebulan, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ' +
     'Tanda * dan batang pudar = bulan belum penuh. ' +
     (basis === 'ref' ? `Perbandingan antartahun memakai satu satelit (${YOY.ref_label}); angka lengkap tiga satelit ada di tabel.` : 'Tiga satelit hanya tersedia untuk tahun berjalan, jadi tidak dibandingkan dengan tahun lain.');
+}
+
+/* ---------------- tanggal yang sama di tahun-tahun lain ---------------- */
+function renderSameDate(box, legend, ytdT) {
+  const cy = String(YOY.current_year);
+  const key = state.conf;
+  const lastIso = YOY.last_date;
+  const ctl = $('#trendControls');
+  if (!lastIso || !YOY.series[cy]) {
+    box.append(el('div', { class: 'empty', text: `Data ${cy} untuk perbandingan antartahun belum tersedia.` }));
+    $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
+    return;
+  }
+  // Tanggal: pilihan pengguna, atau tanggal Riwayat, atau tanggal lengkap terakhir.
+  // Hari ini belum lengkap, jadi tidak bisa dipilih.
+  let iso = state.cmpDate || (state.mode === 'hist' && state.histEnd ? state.histEnd : lastIso);
+  if (iso > lastIso) iso = lastIso;
+  if (iso < `${cy}-01-01`) iso = `${cy}-01-01`;
+  const win = state.cmpWin === 7 ? 7 : 1;
+  const pos = {}; YOY.days.forEach((d, k) => { pos[d] = k; });
+  const mm = +iso.slice(5, 7), dd = +iso.slice(8, 10);
+  // Jumlah titik api pada tanggal itu (atau 7 hari s.d. tanggal itu) di tahun `year`
+  const sumFor = (arr, year, w) => {
+    if (!arr) return null;
+    let sum = 0;
+    for (let i = 0; i < w; i++) {
+      const d = new Date(Date.UTC(+year, mm - 1, dd - i));
+      if (d.getUTCFullYear() !== +year) return null;  // jendela melewati awal tahun
+      const v = arr[pos[`${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`]];
+      if (v == null) return null;  // ada hari yang belum/tidak diproses
+      sum += v;
+    }
+    return sum;
+  };
+  const years = [cy, ...(CONFIG.monthlyCompareYears || []).map(String).filter(y => y !== cy && YOY.series[y])];
+  const multiArr = YOY.multi ? areaSeries(YOY.multi[key] || {}) : null;
+  const rows = years.map(y => {
+    const arr = areaSeries(YOY.series[y][key] || {});
+    return { year: y, color: y === cy ? 'var(--accent)' : yearColor(y), d1: sumFor(arr, y, 1), d7: sumFor(arr, y, 7),
+      m1: y === cy ? sumFor(multiArr, y, 1) : null, m7: y === cy ? sumFor(multiArr, y, 7) : null };
+  });
+
+  // kontrol: tanggal & jendela
+  const inp = el('input', { type: 'date', class: 'select', min: `${cy}-01-01`, max: lastIso, value: iso, 'aria-label': 'Tanggal' });
+  inp.addEventListener('change', () => { if (inp.value) { state.cmpDate = inp.value; renderTrend(); } });
+  ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, el('span', { text: 'Tanggal' }), inp));
+  ctl.append(segButtons([[1, '1 hari'], [7, '7 hari s.d. tanggal ini']], win, v => { state.cmpWin = v; renderTrend(); }));
+  if (state.cmpDate && state.cmpDate !== lastIso) {
+    ctl.append(el('button', { type: 'button', class: 'text-btn', text: 'Tanggal terakhir', onclick: () => { state.cmpDate = lastIso; renderTrend(); } }));
+  }
+
+  const tglLabel = `${dd} ${BULAN_PANJANG[mm - 1]}`;
+  $('#trendSub').textContent = `Titik api ${win === 1 ? `pada ${tglLabel}` : `7 hari hingga ${tglLabel}`} di tiap tahun · ${areaName(state.area)} · satu satelit (${YOY.ref_label}) agar sebanding antartahun`;
+
+  // batang horizontal per tahun
+  const val = r => (win === 1 ? r.d1 : r.d7);
+  const max = Math.max(1, ...rows.map(r => val(r) || 0));
+  const list = el('div', { class: 'hbars', style: 'margin-top:6px;max-width:760px' });
+  for (const r of rows) {
+    const v = val(r);
+    const label = `${tglLabel} ${r.year}`;
+    const row = el('div', { class: 'hbar', style: 'grid-template-columns:56px 1fr', role: 'img', 'aria-label': `${label}: ${v == null ? 'tidak ada data' : fmt(v) + ' titik api'}` },
+      el('div', { class: 'name', title: label }, el('span', { text: r.year, style: r.year === cy ? 'font-weight:650' : '' })),
+      el('div', { class: 'track' },
+        v == null ? el('span', { class: 'val', text: 'tidak ada data' })
+          : el('div', { class: 'bar', style: `width:calc(${v / max} * (100% - 56px));background:${r.color}` }),
+        v == null ? '' : el('span', { class: 'val', text: fmt(v) })));
+    bindTip(row, () => {
+      const t = [el('div', { class: 'th', text: win === 1 ? label : `7 hari hingga ${label}` }),
+        el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${r.color}` }), '1 satelit'), el('b', { text: v == null ? '–' : fmt(v) }))];
+      if (r.year === cy) t.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), '3 satelit'), el('b', { text: (win === 1 ? r.m1 : r.m7) == null ? '–' : fmt(win === 1 ? r.m1 : r.m7) })));
+      return t;
+    });
+    list.append(row);
+  }
+  box.append(list);
+
+  // kalimat ringkas: 2026 dibanding tiap tahun
+  const vc = val(rows[0]);
+  const parts = rows.slice(1).filter(r => val(r) != null && val(r) > 0 && vc != null).map(r => {
+    const ratio = vc / val(r);
+    return ratio >= 1 ? `${NF1.format(ratio)} kali ${r.year}` : `${PCT.format(ratio)} dari ${r.year}`;
+  });
+  if (parts.length) box.append(el('p', { class: 'sub', style: 'margin:10px 0 0', text: `Dibanding ${win === 1 ? 'tanggal' : 'periode'} yang sama, titik api ${cy} = ${parts.join(' · ')}.` }));
+
+  // tabel
+  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Tahun' }), el('th', { class: 'r', text: `${tglLabel} (1 satelit)` }),
+    el('th', { class: 'r', text: `7 hari s.d. ${tglLabel} (1 satelit)` }))));
+  const tb = el('tbody');
+  for (const r of rows) {
+    tb.append(el('tr', null, el('td', { text: r.year }), el('td', { class: 'r', text: r.d1 == null ? '–' : fmt(r.d1) }), el('td', { class: 'r', text: r.d7 == null ? '–' : fmt(r.d7) })));
+    if (r.year === cy && (r.m1 != null || r.m7 != null)) {
+      tb.append(el('tr', null, el('td', { text: `${r.year} (3 satelit)` }), el('td', { class: 'r', text: r.m1 == null ? '–' : fmt(r.m1) }), el('td', { class: 'r', text: r.m7 == null ? '–' : fmt(r.m7) })));
+    }
+  }
+  ytdT.append(tb);
+  $('#trendNote').textContent = `Hari ini belum lengkap, jadi tanggal terakhir yang bisa dipilih adalah ${fmtDateLong(lastIso)}. ` +
+    'Angka satu hari sangat dipengaruhi awan, asap tebal, dan posisi lintasan satelit; untuk perbandingan yang lebih stabil, pakai 7 hari. ' +
+    `Perbandingan memakai satu satelit (${YOY.ref_label}); angka tiga satelit ${cy} ada di tabel.`;
 }
 
 /* ---------------- kualitas udara ---------------- */
