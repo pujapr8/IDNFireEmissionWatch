@@ -360,6 +360,7 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
   </div>
   <div class="wrap hist-row" id="histRow" hidden>
     <div class="fgroup">
+      <select class="select" id="histYear" aria-label="Tahun" hidden></select>
       <button class="step-btn" id="histPrev" type="button" aria-label="Hari sebelumnya">&lsaquo;</button>
       <input class="select" type="date" id="histDate" aria-label="Tanggal">
       <button class="step-btn" id="histNext" type="button" aria-label="Hari berikutnya">&rsaquo;</button>
@@ -615,6 +616,7 @@ const state = {
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
+let INDEX_DAYS = [], INDEX_YEARS = [], INDEX_YB = {};  // tanggal tersedia, tahun, batas per tahun
 let map, hsLayer, provLayer, baseLayer, labelLayer, windLayer, aerosolLayer, airLayer;
 const ctxLayers = {};
 let current = { idx: [], pts: [] };
@@ -1880,7 +1882,7 @@ function renderSameDate(box, legend, ytdT) {
   }
   // Tanggal: pilihan pengguna, atau tanggal Riwayat, atau tanggal lengkap terakhir.
   // Hari ini belum lengkap, jadi tidak bisa dipilih.
-  let iso = state.cmpDate || (state.mode === 'hist' && state.histEnd ? state.histEnd : lastIso);
+  let iso = state.cmpDate || (state.mode === 'hist' && state.histEnd ? `${cy}${state.histEnd.slice(4)}` : lastIso);
   if (iso > lastIso) iso = lastIso;
   if (iso < `${cy}-01-01`) iso = `${cy}-01-01`;
   const win = state.cmpWin === 7 ? 7 : 1;
@@ -2081,7 +2083,8 @@ function buildHistH(dates, datas, W) {
     t0: new Date(dates[0] + 'T00:00:00+07:00'), t0Date: dates[0], nowMin: span * 1440, names: {},
     prevLoaded: span > W && datas.slice(0, span - W).every(Boolean),
     missing: dates.slice(span - W).filter((d, k) => !datas[span - W + k]),
-    minSats: Math.min(...datas.slice(span - W).filter(Boolean).map(d => d.sats.length), 3)
+    minSats: Math.min(...datas.slice(span - W).filter(Boolean).map(d => d.sats.length), 3),
+    maxSats: Math.max(...datas.slice(span - W).filter(Boolean).map(d => d.sats.length), 0)
   };
   const provIdx = new Map(S.provinces.map(p => [p.name, p.i]));
   const kabIdx = new Map(S.kabupaten.map(k => [k.name, k.i]));
@@ -2136,10 +2139,32 @@ async function refreshHist() {
   update(); setAerosol(); renderPanel(); renderLegend(); renderHistControls();
   if (playing) loadDay(isoDateAddDays(state.histEnd, 1));  // siapkan hari berikutnya
 }
+/* Tanggal arsip sebelum (dir -1) / sesudah (dir +1) iso, atau null */
+function stepDay(iso, dir) {
+  let lo = 0, hi = INDEX_DAYS.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (INDEX_DAYS[mid] < iso) lo = mid + 1; else hi = mid; }
+  if (dir > 0) { const j = INDEX_DAYS[lo] === iso ? lo + 1 : lo; return INDEX_DAYS[j] || null; }
+  return INDEX_DAYS[lo - 1] || null;
+}
+function yearBounds(y) { return INDEX_YB[y] || { first: INDEX.first, last: INDEX.last }; }
+/* Tanggal terdekat yang punya arsip; bila tahunnya ada di arsip, tetap di tahun itu */
 function clampDate(iso) {
-  if (iso < INDEX.first) return INDEX.first;
-  if (iso > INDEX.last) return INDEX.last;
-  return iso;
+  if (!INDEX_DAYS.length) return iso;
+  if (INDEX_MAP.has(iso)) return iso;
+  const yb = INDEX_YB[iso.slice(0, 4)];
+  if (yb) {
+    if (iso < yb.first) return yb.first;
+    if (iso > yb.last) return yb.last;
+  }
+  const a = stepDay(iso, -1), b = stepDay(iso, 1);
+  if (yb) {  // di dalam tahun yang sama tetapi ada hari kosong
+    const ok = x => x && x.slice(0, 4) === iso.slice(0, 4);
+    if (ok(a) && ok(b)) return daysBetween(a, iso) <= daysBetween(iso, b) ? a : b;
+    return ok(a) ? a : b;
+  }
+  if (!a) return b;
+  if (!b) return a;
+  return daysBetween(a, iso) <= daysBetween(iso, b) ? a : b;
 }
 function syncWinSeg() {
   const v = state.mode === 'hist' ? 'hist' : state.win;
@@ -2166,14 +2191,23 @@ function exitHist(win) {
 function renderHistControls() {
   if (!INDEX) return;
   const di = $('#histDate'); di.min = INDEX.first; di.max = INDEX.last; di.value = state.histEnd;
-  const sl = $('#histSlider'); sl.min = 0; sl.max = daysBetween(INDEX.first, INDEX.last); sl.value = daysBetween(INDEX.first, state.histEnd);
+  const yr = state.histEnd.slice(0, 4), yb = yearBounds(yr);
+  const ys = $('#histYear');
+  ys.hidden = INDEX_YEARS.length < 2;
+  if (ys.options.length !== INDEX_YEARS.length) {
+    ys.replaceChildren(...INDEX_YEARS.slice().reverse().map(y => el('option', { value: y, text: y })));
+  }
+  ys.value = yr;
+  const sl = $('#histSlider'); sl.min = 0; sl.max = daysBetween(yb.first, yb.last); sl.value = daysBetween(yb.first, state.histEnd);
   $('#histPrev').disabled = state.histEnd <= INDEX.first;
   $('#histNext').disabled = state.histEnd >= INDEX.last;
   document.querySelectorAll('#segDur button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === state.histDays)));
   $('#histPlay').textContent = playing ? '❚❚ Jeda' : '▶ Putar';
   const notes = [];
   if (H && H.missing && H.missing.length) notes.push(`${H.missing.length} hari tanpa arsip`);
-  if (H && H.minSats < 3) notes.push(`sebagian hari hanya ${H.minSats} satelit`);
+  if (H && H.minSats < 3) notes.push(H.maxSats === H.minSats
+    ? `hanya ${H.minSats} satelit, jadi angkanya lebih kecil daripada hari dengan 3 satelit`
+    : `sebagian hari hanya ${H.minSats} satelit`);
   if (state.histDays > 7) notes.push('peta: kepadatan per sel ±11 km');
   $('#histNote').textContent = notes.join(' · ');
 }
@@ -2181,28 +2215,36 @@ function stopPlay() { if (playing) { playing = false; renderHistControls(); } }
 async function togglePlay() {
   if (playing) { stopPlay(); return; }
   playing = true;
-  if (state.histEnd >= INDEX.last) state.histEnd = clampDate(isoDateAddDays(INDEX.last, -30));
+  const yb0 = yearBounds(state.histEnd.slice(0, 4));
+  if (state.histEnd >= yb0.last) state.histEnd = clampDate(isoDateAddDays(yb0.last, -30));
   renderHistControls();
   while (playing && state.mode === 'hist') {
     await refreshHist();
     await sleep(state.histDays > 7 ? 1000 : 750);
     if (!playing) break;
-    if (state.histEnd >= INDEX.last) { stopPlay(); break; }
-    state.histEnd = isoDateAddDays(state.histEnd, 1);
+    const next = stepDay(state.histEnd, 1);
+    // berhenti di akhir tahun (tahun berikutnya bisa tidak berurutan)
+    if (!next || next.slice(0, 4) !== state.histEnd.slice(0, 4)) { stopPlay(); break; }
+    state.histEnd = next;
   }
 }
 function bindHist() {
   const go = iso => { state.histEnd = clampDate(iso); refreshHist(); };
   $('#histDate').addEventListener('change', e => { if (e.target.value) { stopPlay(); go(e.target.value); } });
   let t = 0;
+  $('#histYear').addEventListener('change', e => {
+    stopPlay();
+    // tanggal & bulan yang sama di tahun pilihan
+    go(`${e.target.value}${state.histEnd.slice(4)}`);
+  });
   $('#histSlider').addEventListener('input', e => {
     stopPlay();
-    state.histEnd = isoDateAddDays(INDEX.first, +e.target.value);
+    state.histEnd = clampDate(isoDateAddDays(yearBounds(state.histEnd.slice(0, 4)).first, +e.target.value));
     $('#histDate').value = state.histEnd;
     clearTimeout(t); t = setTimeout(refreshHist, 180);
   });
-  $('#histPrev').addEventListener('click', () => { stopPlay(); go(isoDateAddDays(state.histEnd, -1)); });
-  $('#histNext').addEventListener('click', () => { stopPlay(); go(isoDateAddDays(state.histEnd, 1)); });
+  $('#histPrev').addEventListener('click', () => { stopPlay(); const d = stepDay(state.histEnd, -1); if (d) go(d); });
+  $('#histNext').addEventListener('click', () => { stopPlay(); const d = stepDay(state.histEnd, 1); if (d) go(d); });
   $('#histPlay').addEventListener('click', togglePlay);
   document.querySelectorAll('#segDur button').forEach(b => b.addEventListener('click', () => {
     state.histDays = +b.dataset.v; renderHistControls(); refreshHist();
@@ -2297,7 +2339,15 @@ async function main() {
   }
   [YOY, WIND, AIR, AERO, PROV_GJ, INDEX] = await Promise.all([getJSON('yoy.json', true), getJSON('angin.json', true), getJSON('udara.json', true), getJSON('aerosol.json', true), getJSON('provinsi.geojson', true),
     fetch(CONFIG.archiveUrl + 'harian/indeks.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null)]);
-  if (INDEX && INDEX.days && INDEX.days.length) INDEX_MAP = new Map(INDEX.days.map(d => [d.d, d]));
+  if (INDEX && INDEX.days && INDEX.days.length) {
+    INDEX_MAP = new Map(INDEX.days.map(d => [d.d, d]));
+    INDEX_DAYS = INDEX.days.map(d => d.d).sort();
+    for (const d of INDEX_DAYS) {
+      const y = d.slice(0, 4);
+      if (!INDEX_YB[y]) { INDEX_YB[y] = { first: d, last: d }; INDEX_YEARS.push(y); }
+      INDEX_YB[y].last = d;
+    }
+  }
   else INDEX = null;
   LIVE_H = H;
   await Promise.all(S.context_layers.filter(c => c.file).map(async c => { CTX_GJ[c.id] = await getJSON(c.file, true); }));

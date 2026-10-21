@@ -1,0 +1,70 @@
+name: Unduh lokasi titik api tahun lalu
+
+# Jalankan manual. Mengisi arsip harian (lokasi titik api per hari) untuk
+# tahun-tahun pembanding, supaya tanggal di tahun itu bisa dibuka di mode
+# Riwayat. Sumber dan cara hitung sama dengan arsip tahun berjalan; satelit
+# mengikuti yang tersedia pada tahun itu (2015 hanya S-NPP, 2019 dan 2023
+# S-NPP + NOAA-20). Citra aerosol ikut diunduh sejak Sentinel-5P beroperasi (2018).
+#
+# Hasil di-commit setiap satu tahun selesai. Bila terhenti (mis. batas waktu
+# 6 jam GitHub), jalankan lagi: hari yang sudah tersimpan dilewati.
+# Selama berjalan, jadwal "Perbarui data" menunggu, jadi dashboard tidak
+# diperbarui sampai workflow ini selesai.
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Tahun yang diunduh, pisahkan dengan spasi"
+        required: false
+        default: "2015 2019 2023"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: perbarui-data
+  cancel-in-progress: false
+
+jobs:
+  unduh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Pasang paket
+        run: pip install -r requirements.txt
+
+      - name: Unduh batas kabupaten/kota (hanya bila belum ada)
+        if: hashFiles('boundaries/kabupaten.geojson') == ''
+        run: python -m pipeline.fetch_boundaries || echo "::warning::Batas kabupaten gagal diunduh; level kabupaten dilewati"
+
+      - name: Unduh lokasi titik api per tahun & simpan tiap tahun selesai
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+          CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+          YEARS: ${{ github.event.inputs.years || '2015 2019 2023' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for y in $YEARS; do
+            echo "::group::Tahun $y"
+            python -m pipeline.backfill_harian --tahun "$y" --tanpa-mentah \
+              || echo "::warning::Tahun $y belum lengkap; jalankan workflow ini lagi untuk melanjutkan"
+            git add data/archive boundaries
+            if git diff --cached --quiet; then
+              echo "Tidak ada perubahan untuk $y"
+            else
+              git commit -m "Arsip lokasi titik api $y"
+              git pull --rebase --autostash
+              git push
+            fi
+            echo "::endgroup::"
+          done
+          echo "Selesai. Jalankan 'Perbarui data' supaya arsip baru ikut terbit di situs."

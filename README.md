@@ -37,6 +37,8 @@ Dashboard publik pemantauan titik api kebakaran hutan dan lahan serta pergerakan
 5. **Isi arsip awal.** Buka tab *Actions*, pilih **Isi arsip awal (backfill)**, lalu klik *Run workflow*. Proses ini mengunduh batas kabupaten/kota, mengisi arsip harian sejak 1 Januari 2026 (untuk mode Riwayat dan grafik per bulan), serta data tahun-tahun pembanding. Perkiraan 30–90 menit. Bila terhenti di tengah jalan, jalankan lagi: hari yang sudah tersimpan dilewati.
 6. **Terbitkan pertama kali.** Di tab *Actions*, pilih **Perbarui data** lalu klik *Run workflow*. Setelah selesai, alamat situs muncul di ringkasan job, biasanya `https://<akun>.github.io/<repo>/`. Selanjutnya workflow ini berjalan sendiri tiap 2 jam.
 
+**Opsional: lokasi titik api tahun pembanding.** Supaya tanggal di tahun 2015, 2019, dan 2023 bisa dibuka di mode Riwayat (peta, peringkat, unduh CSV), jalankan workflow **Unduh lokasi titik api tahun lalu** di tab *Actions*. Butuh beberapa jam; hasilnya di-commit tiap satu tahun selesai, jadi bila terhenti tinggal dijalankan lagi. Setelah selesai, jalankan **Perbarui data**. Satelit mengikuti yang tersedia pada tahun itu (2015 hanya S-NPP; 2019 dan 2023 S-NPP + NOAA-20), dan citra aerosol hanya ada sejak 2018.
+
 ### Yang perlu dicek setelah run pertama
 
 Bagian berikut tidak bisa diuji dari luar jaringan, jadi pastikan di situs yang sudah terbit:
@@ -139,6 +141,7 @@ export CDSE_CLIENT_ID=...  CDSE_CLIENT_SECRET=...   # opsional, untuk lapisan as
 python -m pipeline.fetch_boundaries      # opsional, sekali
 python -m pipeline.backfill_harian      # arsip harian sejak 1 Jan 2026 (bisa dihentikan & dilanjutkan)
 python -m pipeline.backfill --years 2015 2019 2023 2024 2025   # tahun pembanding
+python -m pipeline.backfill_harian --tahun 2015 2019 2023 --tanpa-mentah   # opsional: lokasi titik api tahun pembanding
 python -m pipeline.update
 
 mkdir -p _site/data && cp index.html _site/ && cp -r data/live data/archive _site/data/

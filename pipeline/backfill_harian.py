@@ -3,6 +3,7 @@
     python -m pipeline.backfill_harian                 # sejak config.HISTORY_START
     python -m pipeline.backfill_harian --mulai 2026-08-01 --sampai 2026-09-30
     python -m pipeline.backfill_harian --tanpa-aerosol
+    python -m pipeline.backfill_harian --tahun 2015 2019 2023 --tanpa-mentah
 
 - Tiga satelit VIIRS. Untuk tiap satelit dipakai data Standard Processing (SP)
   bila sudah tersedia, sisanya near real-time (NRT). Hari yang hanya tercakup
@@ -116,14 +117,23 @@ def main(argv=None):
     ap.add_argument("--pekerja", type=int, default=4, help="permintaan FIRMS serentak")
     ap.add_argument("--ulang", action="store_true", help="tulis ulang hari yang sudah ada")
     ap.add_argument("--tanpa-aerosol", action="store_true")
+    ap.add_argument("--tahun", type=int, nargs="+",
+                    help="isi tahun penuh (1 Jan-31 Des), mis. --tahun 2015 2019 2023; "
+                         "menggantikan --mulai/--sampai")
+    ap.add_argument("--tanpa-mentah", action="store_true",
+                    help="jangan simpan deteksi mentah (raw/*.csv.gz); hemat ruang")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     key = os.environ.get("FIRMS_MAP_KEY") or sys.exit("FIRMS_MAP_KEY belum diisi")
 
     yesterday = pd.Timestamp.now(tz=C.TIMEZONE).date() - timedelta(days=1)
-    first = date.fromisoformat(args.mulai)
-    last = date.fromisoformat(args.sampai) if args.sampai else yesterday
-    last = min(last, yesterday)
+    if args.tahun:
+        ranges = [(date(y, 1, 1), min(date(y, 12, 31), yesterday)) for y in sorted(set(args.tahun))]
+    else:
+        first = date.fromisoformat(args.mulai)
+        last = date.fromisoformat(args.sampai) if args.sampai else yesterday
+        ranges = [(first, min(last, yesterday))]
+    ranges = [(a, b) for a, b in ranges if a <= b]
 
     av = availability(key)
     for sat in C.SATELLITES:
@@ -147,7 +157,7 @@ def main(argv=None):
         log.info("citra aerosol format lama dihapus; diunduh ulang dalam format baru")
 
     months = []
-    for m_first, m_last in month_ranges(first, last):
+    for m_first, m_last in (m for a, b in ranges for m in month_ranges(a, b)):
         days = [m_first + timedelta(days=i) for i in range((m_last - m_first).days + 1)]
         todo = days if args.ulang else [d for d in days if not HR.day_path(d).exists()]
         months.append((m_first, days, todo))
@@ -187,7 +197,7 @@ def main(argv=None):
                     results = None
                 if results is not None:
                     process_month(label, todo, results, prov_names, kab_names, ctx_layers,
-                                  assign, kabupaten, ref_prefix, prog)
+                                  assign, kabupaten, ref_prefix, prog, raw=not args.tanpa_mentah)
             if aer_client is not None:
                 try:
                     AE.archive_days(days, aer_client, overwrite=args.ulang)
@@ -203,7 +213,7 @@ def main(argv=None):
 
 
 def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
-                  assign, kabupaten, ref_prefix, prog):
+                  assign, kabupaten, ref_prefix, prog, raw=True):
     covered = {sat: set() for sat in C.SATELLITES}
     frames = []
     for sat, a, b, kept in results:
@@ -230,7 +240,7 @@ def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
         p = HR.write_day_json(d, groups, sats, prov_names, kab_names, ctx_layers)
         if p:
             changed.append(p)
-        if len(det):
+        if raw and len(det):
             p = A.write_raw_day(d, det, prov_names, kab_names, ctx_layers)
             if p:
                 changed.append(p)

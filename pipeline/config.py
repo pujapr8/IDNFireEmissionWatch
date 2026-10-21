@@ -153,6 +153,8 @@ AEROSOL_WIDTH_PX = 1600
 # Warnanya diatur di index.html (AER_RAMPS), jadi bisa diganti tanpa unduh ulang.
 AEROSOL_ENCODING = {"type": "ai_u8", "min": 0.5, "max": 6.0}
 AEROSOL_ARCHIVE_DIRNAME = "aerosol_ai"
+# Indeks aerosol Sentinel-5P baru tersedia sejak akhir April 2018
+AEROSOL_START = "2018-05-01"
 AEROSOL_CATCHUP_PER_RUN = 50  # maks. citra arsip yang belum ada, diunduh per pembaruan
 
 # Kategori mengikuti ambang ISPU PM2.5 (rata-rata 24 jam)

@@ -151,6 +151,8 @@ def archive_days(dates, client: Client | None = None, overwrite: bool = False) -
     client = client or Client(*cred)
     saved = []
     for d in dates:
+        if d.isoformat() < C.AEROSOL_START:
+            continue  # sebelum Sentinel-5P beroperasi
         path = aerosol_path(d)
         if path.exists() and not overwrite:
             continue

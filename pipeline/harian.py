@@ -98,7 +98,7 @@ def missing_aerosol_days() -> list[date]:
             d = date.fromisoformat(f.stem)
         except ValueError:
             continue
-        if not aerosol_path(d).exists():
+        if d.isoformat() >= C.AEROSOL_START and not aerosol_path(d).exists():
             out.append(d)
     return sorted(out, reverse=True)
 
