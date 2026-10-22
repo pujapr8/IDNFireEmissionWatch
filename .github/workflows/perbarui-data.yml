@@ -18,7 +18,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -42,7 +42,17 @@ jobs:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
           CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
           CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
-        run: python -m pipeline.update
+        # Diulang sampai 3 kali bila server NASA sedang tidak bisa dihubungi
+        run: |
+          for i in 1 2 3; do
+            if python -m pipeline.update; then exit 0; fi
+            if [ "$i" -lt 3 ]; then
+              echo "::warning::Percobaan $i gagal (mis. server NASA tidak bisa dihubungi); mencoba lagi dalam 3 menit"
+              sleep 180
+            fi
+          done
+          echo "::error::Gagal 3 kali. Dashboard tetap menampilkan data terakhir; jadwal berikutnya akan mencoba lagi."
+          exit 1
 
       - name: Simpan arsip ke repositori
         run: |

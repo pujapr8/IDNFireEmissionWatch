@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+import socket
 import time
 from datetime import date, timedelta
 
@@ -11,10 +12,15 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import requests
+import urllib3.util.connection as _u3conn
 
 from . import config as C
 
 log = logging.getLogger("firms")
+
+# Server GitHub Actions tidak punya jalur IPv6. Paksa IPv4 supaya koneksi tidak
+# gagal dengan "Network is unreachable" ketika DNS mendahulukan alamat IPv6.
+_u3conn.allowed_gai_family = lambda: socket.AF_INET
 
 
 class FirmsError(RuntimeError):
@@ -28,7 +34,11 @@ class FirmsError(RuntimeError):
 TIMEOUT = (30, 300)  # (sambung, baca) detik
 
 
-def _get_csv(url: str, retries: int = 3, header: str = "latitude") -> pd.DataFrame:
+# Jeda sebelum mencoba lagi (detik): gangguan jaringan sesaat biasanya pulih dalam 1-2 menit
+RETRY_WAIT = (10, 30, 60)
+
+
+def _get_csv(url: str, retries: int = 4, header: str = "latitude") -> pd.DataFrame:
     last = None
     for attempt in range(retries):
         try:
@@ -48,7 +58,8 @@ def _get_csv(url: str, retries: int = 3, header: str = "latitude") -> pd.DataFra
             if attempt + 1 < retries:
                 log.warning("FIRMS belum merespons dengan benar (%s); mencoba lagi (%d/%d)",
                             type(e).__name__, attempt + 2, retries)
-            time.sleep(5 * (attempt + 1))
+            if attempt + 1 < retries:
+                time.sleep(RETRY_WAIT[min(attempt, len(RETRY_WAIT) - 1)])
     # Pesan error requests memuat URL lengkap; jangan sampai kunci ikut tercetak
     msg = str(last)
     key = _key_in(url)
