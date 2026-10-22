@@ -156,20 +156,47 @@ def main(argv=None):
     # ---------------- arsip ----------------
     final_dates = finalizable_dates(now_wib, today_utc)
     changed = []
-    all_ok = all(s["ok"] for s in status)
-    if final_dates and not all_ok:
-        log.warning("ada satelit yang gagal; arsip harian tidak diperbarui pada run ini")
-    if final_dates and all_ok:
+    ok_sats = [F.sat_base(s["key"]) for s in status if s["ok"]]
+    failed = [s["label"] for s in status if not s["ok"]]
+    if final_dates and failed:
+        # Arsip tetap ditulis dengan satelit yang berhasil. Selama tanggal itu masih
+        # di jendela live, run berikutnya menulis ulang dengan satelit lengkap;
+        # sesudahnya, "Isi arsip awal" melengkapinya bila FIRMS menyediakan datanya.
+        log.warning("satelit gagal diunduh (%s); arsip harian ditulis tanpa satelit itu", ", ".join(failed))
+    if final_dates:
+        day_sats, keep = {}, []
+        for d in final_dates:
+            gone = A.empty_sats(groups, d, ok_sats)
+            day_sats[d] = [s for s in ok_sats if s not in gone]
+            if gone:
+                log.warning("%s: data %s kosong (satelit lain mendeteksi api); tidak dihitung sebagai nol",
+                            d, ", ".join(C.SATELLITES[s]["label"] for s in sorted(gone)))
+            # Jangan menimpa arsip yang satelitnya lebih lengkap dengan yang kurang lengkap
+            had = HR.day_sats(d)
+            now = {C.SATELLITES[s]["label"] for s in day_sats[d]}
+            if had is not None and not now >= set(had):
+                keep.append(d)
+        if keep:
+            log.info("arsip lama dipertahankan (satelitnya lebih lengkap): %s",
+                     ", ".join(d.isoformat() for d in keep))
+        final_dates = [d for d in final_dates if d not in keep]
         changed += A.upsert_year_files("daily", A.daily_counts(groups, prov_names, final_dates))
         ref_src = f"{C.REF_SATELLITE}_NRT"
-        ref_ok = any(s["key"] == ref_src and s["ok"] for s in status)
-        if ref_ok:
+        ref_dates = [d for d in final_dates if C.REF_SATELLITE in day_sats[d]]
+        no_ref = [d for d in final_dates if d not in ref_dates]
+        if ref_dates:
             ref_groups = F.dedup_daily(det[det["source"] == ref_src]) if len(det) else det
             changed += A.upsert_year_files("ref_daily",
-                                           A.daily_counts(ref_groups, prov_names, final_dates))
-        sats_live = [s["label"] for s in status if s["ok"]]
+                                           A.daily_counts(ref_groups, prov_names, ref_dates))
+        if no_ref:
+            changed += A.drop_dates("ref_daily", no_ref)
+            log.warning("tanpa data %s (tidak dihitung di perbandingan antartahun): %s",
+                        C.REF_LABEL, ", ".join(d.isoformat() for d in no_ref))
         for d in final_dates:
-            p = HR.write_day_json(d, groups, sats_live, prov_names, kab_names, ctx_layers)
+            sats_d = [C.SATELLITES[s]["label"] for s in day_sats[d]]
+            if not sats_d:
+                continue
+            p = HR.write_day_json(d, groups, sats_d, prov_names, kab_names, ctx_layers)
             if p:
                 changed.append(p)
             if len(det):

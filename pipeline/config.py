@@ -65,6 +65,13 @@ REF_SATELLITE = "VIIRS_SNPP"
 REF_LABEL = "VIIRS S-NPP"
 BASELINE_YEARS_DEFAULT = [2015, 2019, 2023, 2024, 2025]
 
+# Satelit dianggap TIDAK punya data pada suatu hari bila ia tidak mendeteksi
+# satu titik pun sementara satelit lain mendeteksi sedikitnya sekian titik unik.
+# Ketiga satelit melintas pada jam yang hampir sama, jadi nol di satu satelit
+# saat yang lain ramai berarti datanya kosong (gangguan/belum diproses), bukan
+# tidak ada api. Hari seperti itu tidak dicatat sebagai nol.
+EMPTY_SAT_MIN_OTHERS = 50
+
 # ---------------------------------------------------------------------------
 # Wilayah besar (dipakai juga di skrip GEE tabel hotspot per wilayah)
 # ---------------------------------------------------------------------------

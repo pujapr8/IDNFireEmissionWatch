@@ -31,6 +31,44 @@ def daily_counts(groups: pd.DataFrame, prov_names: list[str], dates) -> pd.DataF
     return pd.DataFrame(rows, columns=["date", "provinsi", "nh", "h"])
 
 
+def empty_sats(groups: pd.DataFrame, d: date, sats) -> set[str]:
+    """Satelit (kunci C.SATELLITES) yang nol deteksi pada tanggal WIB d padahal
+    satelit lain mendeteksi >= C.EMPTY_SAT_MIN_OTHERS titik unik. Datanya kosong."""
+    sats = list(sats)
+    if len(sats) < 2 or not len(groups):
+        return set()
+    g = groups.loc[groups["date_wib"] == d, "sats"].astype(int)
+    if not len(g):
+        return set()
+    out = set()
+    for s in sats:
+        bit = C.SATELLITES[s]["bit"]
+        mine = int((g & bit).astype(bool).sum())
+        others = int(((g & ~bit) > 0).sum())
+        if mine == 0 and others >= C.EMPTY_SAT_MIN_OTHERS:
+            out.add(s)
+    return out
+
+
+def drop_dates(prefix: str, dates) -> list[str]:
+    """Hapus baris tanggal-tanggal ini dari data/archive/<prefix>_<tahun>.csv
+    (mis. hitungan satelit referensi yang ternyata datanya kosong)."""
+    changed = []
+    by_year: dict[str, set[str]] = {}
+    for d in dates:
+        by_year.setdefault(str(d.year), set()).add(d.isoformat())
+    for year, ds in by_year.items():
+        path = C.ARCHIVE_DIR / f"{prefix}_{year}.csv"
+        if not path.exists():
+            continue
+        old = pd.read_csv(path, dtype={"date": str, "provinsi": str})
+        new = old[~old["date"].isin(ds)]
+        if len(new) != len(old):
+            path.write_text(new.to_csv(index=False))
+            changed.append(str(path.relative_to(C.ROOT)))
+    return changed
+
+
 def upsert_year_files(prefix: str, counts: pd.DataFrame) -> list[str]:
     """Tulis/perbarui data/archive/<prefix>_<tahun>.csv. Kembalikan file yang berubah."""
     changed = []

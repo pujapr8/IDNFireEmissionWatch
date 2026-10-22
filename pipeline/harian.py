@@ -29,6 +29,21 @@ def aerosol_path(d: date):
     return AEROSOL_DIR / f"{d.year}" / f"{d.isoformat()}.png"
 
 
+def day_sats(d: date) -> list[str] | None:
+    """Label satelit yang tercatat di arsip harian tanggal d, atau None bila
+    belum ada arsipnya. Cukup membaca awal file ("sats" ditulis di depan)."""
+    path = day_path(d)
+    if not path.exists():
+        return None
+    with open(path, encoding="utf-8") as fh:
+        head = fh.read(400)
+    i = head.find('"sats":[')
+    if i < 0:  # format tak terduga: baca utuh
+        return json.loads(path.read_text(encoding="utf-8")).get("sats", [])
+    j = head.find("]", i)
+    return json.loads(head[i + 7:j + 1])
+
+
 def write_day_json(d: date, groups: pd.DataFrame, sats: list[str], prov_names: list[str],
                    kab_names: list[str], ctx_layers: list[dict]) -> str | None:
     """Tulis titik unik satu tanggal. Waktu disimpan sebagai menit sejak

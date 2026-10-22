@@ -2,6 +2,9 @@ name: Isi arsip awal (backfill)
 
 # Jalankan manual sekali setelah setup: arsip harian (mode Riwayat & grafik
 # per bulan) dan data tahun-tahun pembanding. Aman dijalankan ulang.
+# Jalankan lagi untuk melengkapi hari yang belum punya data salah satu satelit
+# (mis. S-NPP): hari itu diambil ulang bila FIRMS kini menyediakan datanya.
+# Hari yang tetap tanpa data S-NPP disebut di log (cari "RINGKASAN").
 on:
   workflow_dispatch:
     inputs:

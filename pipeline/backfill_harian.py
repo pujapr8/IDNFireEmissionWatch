@@ -8,6 +8,11 @@
 - Tiga satelit VIIRS. Untuk tiap satelit dipakai data Standard Processing (SP)
   bila sudah tersedia, sisanya near real-time (NRT). Hari yang hanya tercakup
   sebagian satelit dicatat di arsip (dashboard menampilkan catatannya).
+- Hari yang sudah diarsipkan tetapi belum punya data salah satu satelit
+  (mis. FIRMS belum menyediakannya saat itu, atau datanya kosong) diambil ulang
+  bila FIRMS kini menyediakan data satelit tersebut. Hari tanpa data satelit
+  referensi (S-NPP) tidak dicatat sebagai nol di hitungan perbandingan, dan
+  selalu disebut di log.
 - Beberapa permintaan FIRMS berjalan serentak (--pekerja, default 4) dan
   terus mengalir lintas bulan. Hasil disimpan tiap bulan selesai; bulan yang
   semua harinya sudah ada dilewati, jadi aman dihentikan lalu dijalankan lagi.
@@ -41,6 +46,19 @@ def fmt_range(r) -> str:
     return f"{r[0]} s.d. {r[1]}" if r else "tidak ada"
 
 
+def fmt_days(days) -> str:
+    """Daftar tanggal ringkas: rentang berurutan digabung (2026-05-01 s.d. 2026-05-31)."""
+    days = sorted(set(days))
+    parts, i = [], 0
+    while i < len(days):
+        j = i
+        while j + 1 < len(days) and days[j + 1] - days[j] == timedelta(days=1):
+            j += 1
+        parts.append(days[i].isoformat() if i == j else f"{days[i]} s.d. {days[j]}")
+        i = j + 1
+    return ", ".join(parts)
+
+
 def availability(key: str) -> dict:
     av = F.data_availability(key)
     av["min_date"] = pd.to_datetime(av["min_date"]).dt.date
@@ -48,17 +66,39 @@ def availability(key: str) -> dict:
     return {r.data_id: (r.min_date, r.max_date) for r in av.itertuples()}
 
 
+def source_for(sat: str, d: date, av: dict) -> str | None:
+    """Sumber FIRMS untuk satelit & tanggal UTC: SP bila sudah tersedia, lalu NRT."""
+    sp, nrt = av.get(f"{sat}_SP"), av.get(f"{sat}_NRT")
+    if sp and sp[0] <= d <= sp[1]:
+        return f"{sat}_SP"
+    if nrt and nrt[0] <= d <= nrt[1]:
+        return f"{sat}_NRT"
+    return None
+
+
+def av_covers(sat: str, d: date, av: dict) -> bool:
+    """FIRMS menyediakan data satelit ini untuk seluruh hari WIB d
+    (hari WIB d = 17.00 UTC d-1 s.d. 17.00 UTC d)."""
+    return source_for(sat, d - timedelta(days=1), av) is not None and source_for(sat, d, av) is not None
+
+
+def needs_fetch(d: date, av: dict) -> tuple[bool, list[str]]:
+    """(perlu diunduh?, satelit yang baru bisa dilengkapi). Hari belum ada -> unduh.
+    Hari sudah ada tetapi satelit X belum tercatat padahal FIRMS kini punya
+    datanya -> unduh ulang hari itu."""
+    have = HR.day_sats(d)
+    if have is None:
+        return True, []
+    fill = [s for s in C.SATELLITES
+            if C.SATELLITES[s]["label"] not in have and av_covers(s, d, av)]
+    return bool(fill), fill
+
+
 def plan(sat: str, first: date, last: date, av: dict) -> list[tuple[str, date, date]]:
     """Potongan maks. 5 hari berurutan dengan sumber yang sama:
     SP bila tanggal itu sudah tersedia di SP, selain itu NRT."""
-    sp, nrt = av.get(f"{sat}_SP"), av.get(f"{sat}_NRT")
-
     def source(d):
-        if sp and sp[0] <= d <= sp[1]:
-            return f"{sat}_SP"
-        if nrt and nrt[0] <= d <= nrt[1]:
-            return f"{sat}_NRT"
-        return None
+        return source_for(sat, d, av)
 
     out, d = [], first
     while d <= last:
@@ -156,11 +196,23 @@ def main(argv=None):
         shutil.rmtree(HR.OLD_AEROSOL_DIR)
         log.info("citra aerosol format lama dihapus; diunduh ulang dalam format baru")
 
-    months = []
+    months, refill = [], {}
     for m_first, m_last in (m for a, b in ranges for m in month_ranges(a, b)):
         days = [m_first + timedelta(days=i) for i in range((m_last - m_first).days + 1)]
-        todo = days if args.ulang else [d for d in days if not HR.day_path(d).exists()]
+        if args.ulang:
+            todo = days
+        else:
+            todo = []
+            for d in days:
+                need, fill = needs_fetch(d, av)
+                if need:
+                    todo.append(d)
+                for s in fill:
+                    refill.setdefault(s, []).append(d)
         months.append((m_first, days, todo))
+    for s, ds in refill.items():
+        log.warning("%d hari sudah diarsipkan tanpa data %s; FIRMS kini menyediakannya, diambil ulang: %s",
+                    len(ds), C.SATELLITES[s]["label"], fmt_days(ds))
     n_todo = sum(1 for m in months if m[2])
     if n_todo:
         log.info("%d bulan perlu diunduh, %d permintaan FIRMS serentak", n_todo, args.pekerja)
@@ -172,7 +224,7 @@ def main(argv=None):
         kept, _ = F.filter_confidence(F.normalize(raw, src))
         return sat, a, b, kept
 
-    failed = []
+    failed, no_ref = [], []
     with ThreadPoolExecutor(max_workers=max(1, args.pekerja)) as ex:
         # Semua permintaan diantrikan sekaligus supaya pekerja tidak menganggur
         # di pergantian bulan; hasilnya tetap diolah berurutan per bulan.
@@ -196,8 +248,9 @@ def main(argv=None):
                     failed.append(label)
                     results = None
                 if results is not None:
-                    process_month(label, todo, results, prov_names, kab_names, ctx_layers,
-                                  assign, kabupaten, ref_prefix, prog, raw=not args.tanpa_mentah)
+                    no_ref += process_month(label, todo, results, prov_names, kab_names, ctx_layers,
+                                            assign, kabupaten, ref_prefix, prog, raw=not args.tanpa_mentah,
+                                            keep_more=not args.ulang)
             if aer_client is not None:
                 try:
                     AE.archive_days(days, aer_client, overwrite=args.ulang)
@@ -205,6 +258,9 @@ def main(argv=None):
                     log.error("%s: arsip aerosol gagal: %s", label, e)
             HR.build_index()
 
+    if no_ref:
+        log.warning("RINGKASAN: %d hari tanpa data %s (tidak dihitung di perbandingan antartahun): %s",
+                    len(no_ref), C.REF_LABEL, fmt_days(no_ref))
     if failed:
         log.warning("%d bulan gagal (%s). Jalankan perintah yang sama lagi untuk melanjutkan.",
                     len(failed), ", ".join(failed))
@@ -213,7 +269,7 @@ def main(argv=None):
 
 
 def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
-                  assign, kabupaten, ref_prefix, prog, raw=True):
+                  assign, kabupaten, ref_prefix, prog, raw=True, keep_more=True):
     covered = {sat: set() for sat in C.SATELLITES}
     frames = []
     for sat, a, b, kept in results:
@@ -230,11 +286,22 @@ def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
         # Satelit dihitung tersedia bila kedua tanggal UTC yang membentuk hari WIB tercakup
         return d in covered[sat] and d - timedelta(days=1) in covered[sat]
 
-    changed, written, empty = [], [], []
+    changed, written, empty, avail, kept = [], [], [], {}, []
+    hollow = {}  # satelit -> hari yang datanya ternyata kosong
     for d in todo:
-        sats = [C.SATELLITES[s]["label"] for s in C.SATELLITES if has(s, d)]
+        sat_keys = [s for s in C.SATELLITES if has(s, d)]
+        gone = A.empty_sats(groups, d, sat_keys)
+        for s in gone:
+            hollow.setdefault(s, []).append(d)
+        sat_keys = [s for s in sat_keys if s not in gone]
+        avail[d] = sat_keys
+        sats = [C.SATELLITES[s]["label"] for s in sat_keys]
         if not sats:
             empty.append(d)  # belum ada data satu satelit pun; dicoba lagi lain kali
+            continue
+        had = HR.day_sats(d) if keep_more else None
+        if had is not None and not set(sats) >= set(had):
+            kept.append(d)  # arsip lama lebih lengkap; jangan ditimpa
             continue
         written.append(d)
         p = HR.write_day_json(d, groups, sats, prov_names, kab_names, ctx_layers)
@@ -245,19 +312,31 @@ def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
             if p:
                 changed.append(p)
     changed += A.upsert_year_files("daily", A.daily_counts(groups, prov_names, written))
-    ref_days = [d for d in written if has(C.REF_SATELLITE, d)]
+    ref_days = [d for d in written if C.REF_SATELLITE in avail[d]]
+    no_ref = [d for d in written if C.REF_SATELLITE not in avail[d]]
     if len(det):
         ref = det[det["source"].str.startswith(ref_prefix)]
         ref_groups = F.dedup_daily(ref) if len(ref) else ref
     else:
         ref_groups = det
     changed += A.upsert_year_files("ref_daily", A.daily_counts(ref_groups, prov_names, ref_days))
+    # Hari tanpa data satelit referensi: hapus hitungan lama (bisa jadi nol palsu)
+    changed += A.drop_dates("ref_daily", no_ref)
     n_days = groups[groups["date_wib"].isin(written)] if len(groups) else groups
     if empty:
-        log.warning("%s: %d hari tanpa data satelit, dilewati: %s", label, len(empty),
-                    ", ".join(d.isoformat() for d in empty[:5]) + (" ..." if len(empty) > 5 else ""))
+        log.warning("%s: %d hari tanpa data satelit, dilewati: %s", label, len(empty), fmt_days(empty))
+    if kept:
+        log.info("%s: arsip lama dipertahankan (satelitnya lebih lengkap): %s", label, fmt_days(kept))
+    for s, ds in hollow.items():
+        log.warning("%s: data %s kosong pada %d hari (satelit lain mendeteksi api); "
+                    "tidak dihitung sebagai nol: %s", label, C.SATELLITES[s]["label"], len(ds), fmt_days(ds))
+    missing_ref = [d for d in no_ref if d not in hollow.get(C.REF_SATELLITE, [])]
+    if missing_ref:
+        log.warning("%s: FIRMS belum menyediakan data %s untuk %d hari: %s",
+                    label, C.REF_LABEL, len(missing_ref), fmt_days(missing_ref))
     log.info("%s selesai: %d titik unik, %d di luar Indonesia dibuang · %s",
              label, len(n_days), outside, prog.step())
+    return no_ref
 
 
 if __name__ == "__main__":
