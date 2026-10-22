@@ -1,0 +1,2467 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantau Titik Api &amp; Asap</title>
+<meta name="description" content="Pemantauan titik api kebakaran hutan dan lahan serta pergerakan asap di Indonesia, diperbarui otomatis dari satelit VIIRS (NASA FIRMS).">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f1f0ec;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10);
+  --accent: #eb6834; --accent-soft: rgba(235,104,52,.16); --past: #b9b8b0;
+  --y1: #2a78d6; --y2: #1baf7a; --y3: #6250d6;
+  --hs: #d7261e; --ring: #fcfcfb;
+  --g1: #f08a76; --g2: #e65a43; --g3: #d7261e; --g4: #a3150f; --g5: #650a07;
+  --up: #d03b3b; --down: #006300;
+  --warn-bg: #fff3d6; --warn-ink: #5c3f00; --warn-line: #fab219;
+  --ispu-baik: #0ca30c; --ispu-sedang: #2a78d6; --ispu-tidak-sehat: #eda100;
+  --ispu-sangat-tidak-sehat: #d03b3b; --ispu-berbahaya: #3a3a38;
+  --boundary: #6f6e69;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.06);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+    --accent: #d95926; --accent-soft: rgba(217,89,38,.20); --past: #5a5954;
+    --y1: #3987e5; --y2: #199e70; --y3: #9085e9;
+    --hs: #ff4b3e; --ring: #1a1a19;
+    --g1: #9a1d14; --g2: #c92b20; --g3: #f5503f; --g4: #ff8a73; --g5: #ffc2b6;
+    --up: #e66767; --down: #0ca30c;
+    --warn-bg: #352a10; --warn-ink: #f5d38a; --warn-line: #c98500;
+    --ispu-baik: #0ca30c; --ispu-sedang: #3987e5; --ispu-tidak-sehat: #fab219;
+    --ispu-sangat-tidak-sehat: #e66767; --ispu-berbahaya: #0b0b0b;
+    --boundary: #8a8984;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+  --accent: #d95926; --accent-soft: rgba(217,89,38,.20); --past: #5a5954;
+    --y1: #3987e5; --y2: #199e70; --y3: #9085e9;
+  --hs: #ff4b3e; --ring: #1a1a19;
+  --g1: #9a1d14; --g2: #c92b20; --g3: #f5503f; --g4: #ff8a73; --g5: #ffc2b6;
+  --up: #e66767; --down: #0ca30c;
+  --warn-bg: #352a10; --warn-ink: #f5d38a; --warn-line: #c98500;
+  --ispu-baik: #0ca30c; --ispu-sedang: #3987e5; --ispu-tidak-sehat: #fab219;
+  --ispu-sangat-tidak-sehat: #e66767; --ispu-berbahaya: #0b0b0b;
+  --boundary: #8a8984;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink); font-family: var(--font);
+  font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-underline-offset: 2px; }
+button, select { font: inherit; color: inherit; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
+.muted { color: var(--muted); }
+.ink-2 { color: var(--ink-2); }
+.num { font-variant-numeric: tabular-nums; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- header ---------- */
+.site-head { padding-top: 22px; padding-bottom: 14px; }
+.site-head .row { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; }
+.kicker { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 6px; }
+h1 { font-size: clamp(24px, 3.2vw, 34px); line-height: 1.15; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+.lede { margin: 8px 0 0; color: var(--ink-2); max-width: 70ch; }
+.meta { margin-top: 10px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.meta strong { color: var(--ink-2); font-weight: 600; }
+.icon-btn {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer;
+}
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ---------- filter bar ---------- */
+.filters {
+  position: sticky; top: 0; z-index: 1100; background: var(--page);
+  border-bottom: 1px solid var(--border); padding: 10px 0;
+}
+.filters .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+[hidden] { display: none !important; }
+.fgroup { display: flex; align-items: center; gap: 8px; }
+.fgroup > .flabel { font-size: 12px; color: var(--muted); font-weight: 600; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button {
+  border: 0; background: transparent; padding: 5px 11px; border-radius: 8px; cursor: pointer;
+  font-size: 13.5px; color: var(--ink-2); white-space: nowrap;
+}
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.select {
+  appearance: none; -webkit-appearance: none; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 10px; padding: 6px 30px 6px 11px; font-size: 13.5px; cursor: pointer; max-width: 260px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.dl-btn {
+  margin-left: auto; border: 1px solid var(--border); background: var(--surface); border-radius: 10px;
+  padding: 6px 11px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+}
+.dl-btn:hover { background: var(--surface-2); }
+
+/* ---------- banners ---------- */
+.banners:empty { display: none; }
+.banner {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink);
+  border-left: 3px solid var(--warn-line); font-size: 14px;
+}
+
+/* ---------- cards & grids ---------- */
+main { padding: 16px 0 40px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.card h2 { font-size: 15px; margin: 0; font-weight: 650; }
+.card .sub { font-size: 13px; color: var(--muted); margin: 2px 0 12px; }
+section + section { margin-top: 16px; }
+.kpis { display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; gap: 12px; }
+.kpi .label { font-size: 13px; color: var(--ink-2); }
+.kpi .value { font-size: 30px; font-weight: 650; line-height: 1.15; margin-top: 6px; letter-spacing: -.01em; }
+.kpi.hero .value { font-size: 52px; }
+.kpi .value small { font-size: 15px; font-weight: 500; color: var(--ink-2); margin-left: 4px; letter-spacing: 0; }
+.kpi .foot { font-size: 13px; color: var(--ink-2); margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.delta { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+.delta svg { width: 12px; height: 12px; }
+.delta.up { color: var(--up); } .delta.down { color: var(--down); } .delta.flat { color: var(--ink-2); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
+.chip i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; box-shadow: 0 0 0 1.5px var(--surface); outline: 1px solid var(--border); }
+
+.map-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: stretch; }
+.kpis > *, .map-grid > *, .two-col > *, .side > * { min-width: 0; }
+.map-card { padding: 0; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+#map { flex: 1; min-height: 640px; width: 100%; background: var(--surface-2); }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ---------- map controls ---------- */
+.leaflet-container { font: inherit; background: var(--surface-2); }
+.leaflet-control-attribution { font-size: 10.5px; background: color-mix(in srgb, var(--surface) 82%, transparent) !important; color: var(--muted); }
+.leaflet-control-attribution a { color: var(--ink-2); }
+.leaflet-bar a { background: var(--surface); color: var(--ink); border-color: var(--border); }
+.leaflet-bar a:hover { background: var(--surface-2); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.leaflet-popup-content { margin: 14px 16px; font-size: 13.5px; min-width: 230px; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.leaflet-tooltip { background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12.5px; }
+.panel {
+  position: absolute; z-index: 800; top: 12px; right: 12px; width: 260px; max-height: calc(100% - 24px); overflow: auto;
+  background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-size: 13.5px;
+}
+.panel summary { list-style: none; cursor: pointer; padding: 10px 12px; font-weight: 650; display: flex; justify-content: space-between; align-items: center; }
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary::after { content: ""; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); margin-top: -4px; }
+.panel[open] summary::after { transform: rotate(225deg); margin-top: 3px; }
+.panel .body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.panel .group-title { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 8px 0 2px; }
+.panel label.row { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; padding: 3px 0; }
+.panel label.row input { margin: 3px 0 0; accent-color: var(--accent); }
+.panel label.row .hint { display: block; font-size: 12px; color: var(--muted); }
+.panel .sublist { margin: 2px 0 4px 24px; display: flex; gap: 4px; flex-wrap: wrap; }
+.mini-seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 2px; }
+.mini-seg button { border: 0; background: transparent; padding: 2px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--ink-2); }
+.mini-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.panel .select { font-size: 12.5px; padding: 3px 26px 3px 8px; }
+.notice { font-size: 12px; color: var(--warn-ink); background: var(--warn-bg); border-radius: 6px; padding: 4px 8px; margin: 2px 0 2px 24px; }
+.legend {
+  position: absolute; z-index: 800; left: 12px; bottom: 26px; max-width: calc(100% - 24px);
+  background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; font-size: 12.5px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.legend .lrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.legend .lt { font-weight: 600; color: var(--ink-2); margin-right: 2px; }
+.legend .key { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); white-space: nowrap; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 1.5px var(--ring); }
+.legend .sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
+.legend .sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; box-shadow: 0 0 0 1.5px var(--ring); }
+.legend .grad { width: 64px; height: 8px; border-radius: 4px; display: inline-block; }
+.aq-icon { background: none; border: 0; }
+.aq-icon span { display: block; width: 11px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 1.5px var(--surface); }
+.aq-icon.bahaya span { box-shadow: 0 0 0 1.5px var(--ink); }
+.hs-canvas { pointer-events: none; }
+.leaflet-control-velocity { background: color-mix(in srgb, var(--surface) 90%, transparent) !important; color: var(--ink-2); font-size: 11.5px; padding: 2px 6px !important; border-radius: 6px; }
+.map-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); z-index: 500; pointer-events: none; }
+
+/* popup */
+.pp h3 { margin: 0 0 2px; font-size: 14.5px; }
+.pp .when { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+.pp dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.pp dt { color: var(--muted); }
+.pp dd { margin: 0; font-weight: 500; }
+.pp .links { margin-top: 10px; font-size: 12.5px; }
+
+/* ---------- charts ---------- */
+.hbars { display: flex; flex-direction: column; gap: 7px; }
+.hbar { display: grid; grid-template-columns: minmax(96px, 42%) 1fr; gap: 10px; align-items: center; font-size: 13px; cursor: default; }
+.hbar .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hbar .track { position: relative; height: 14px; display: flex; align-items: center; gap: 6px; }
+.hbar .bar { height: 14px; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; flex: none; }
+.hbar .val { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
+.hbar:hover .bar, .hbar:focus-visible .bar { filter: brightness(1.12); }
+.hbar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.text-btn { border: 0; background: none; padding: 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-size: 13px; margin-top: 10px; }
+.text-btn:hover { color: var(--ink); }
+
+.cols { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; align-items: end; height: 150px; padding-top: 18px; border-bottom: 1px solid var(--axis); }
+.col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: default; }
+.col .bar { width: min(24px, 70%); background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+.col.partial .bar { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.col .cap { position: absolute; font-size: 12px; line-height: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; padding-bottom: 2px; white-space: nowrap; }
+.col:hover .bar, .col:focus-visible .bar { filter: brightness(1.12); }
+.col:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.col-labels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 4px; }
+
+.meter { margin-top: 10px; }
+.meter .mtop { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.meter .mtrack { height: 8px; background: var(--accent-soft); border-radius: 4px; margin-top: 5px; overflow: hidden; }
+.meter .mfill { height: 100%; background: var(--accent); border-radius: 4px; }
+
+.trend-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.trend-legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin: 4px 0 6px; flex-wrap: wrap; }
+.trend-legend .lk { display: inline-flex; align-items: center; gap: 6px; }
+.trend-legend .lk i { width: 16px; height: 2px; border-radius: 1px; display: inline-block; }
+#trend { position: relative; width: 100%; }
+#trend svg { display: block; width: 100%; overflow: visible; }
+#trend text { font-family: var(--font); }
+.empty { color: var(--muted); font-size: 14px; padding: 24px 0; text-align: center; }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+
+/* tooltip */
+.tt {
+  position: fixed; z-index: 2000; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 8px 10px;
+  font-size: 12.5px; min-width: 120px; opacity: 0; transition: opacity .08s;
+}
+.tt.show { opacity: 1; }
+.tt .th { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.tt .tr { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tt .tr .k { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tt .tr .k i { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
+.tt .tr b { font-variant-numeric: tabular-nums; font-weight: 650; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tbl th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+.tbl td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.tbl td.r, .tbl th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .rank { color: var(--muted); width: 28px; font-variant-numeric: tabular-nums; }
+.tbl .grp { color: var(--muted); font-size: 12.5px; }
+
+/* methodology */
+.method { columns: 2; column-gap: 32px; font-size: 14px; color: var(--ink-2); }
+.method p, .method li { break-inside: avoid; }
+.method h3 { font-size: 14px; color: var(--ink); margin: 0 0 4px; break-after: avoid; }
+.method ul { padding-left: 18px; margin: 0 0 14px; }
+.method p { margin: 0 0 14px; }
+.method code { overflow-wrap: anywhere; font-size: 12.5px; }
+footer { padding-top: 24px; padding-bottom: 40px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border); }
+
+/* ---------- riwayat ---------- */
+.filters .hist-row { margin-top: 8px; gap: 8px 14px; }
+.filters .hist-row[hidden] { display: none; }
+.hist-row input[type="date"] { padding: 5px 8px; background-image: none; }
+.hist-row input[type="range"] { flex: 1 1 220px; min-width: 160px; accent-color: var(--accent); }
+.step-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 16px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.step-btn:hover { background: var(--surface-2); }
+.step-btn:disabled { opacity: .4; cursor: default; }
+.hist-note { font-size: 12.5px; color: var(--muted); }
+body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { opacity: .55; transition: opacity .15s; }
+.legend .gsq { width: 12px; height: 10px; display: inline-block; border-radius: 2px; }
+.trend-controls { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; font-size: 12.5px; color: var(--ink-2); }
+.trend-controls:empty { display: none; }
+.trend-legend .lk .bx { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.col.clickable { cursor: pointer; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1080px) {
+  .map-grid { grid-template-columns: 1fr; }
+  .side { display: grid; grid-template-columns: 1fr 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .two-col, .side { grid-template-columns: 1fr; }
+  #map { flex: none; height: 66vh; min-height: 400px; }
+  .filters { position: static; }
+  .kpi.hero .value { font-size: 44px; }
+  .kpi .value { font-size: 24px; }
+  .method { columns: 1; }
+  .panel { width: auto; left: 56px; right: 12px; top: 10px; }
+  .legend { bottom: 22px; font-size: 12px; }
+  .dl-btn { margin-left: 0; }
+  .fgroup > .flabel { display: none; }
+}
+@media (max-width: 420px) {
+  .kpis { grid-template-columns: 1fr; }
+  .seg button { padding: 5px 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
+</style>
+</head>
+<body>
+<header class="site-head wrap">
+  <div class="row">
+    <div>
+      <h1>Indonesia Fire &amp; Emissions Watch</h1>
+      <p class="lede">By <b>Puja Pratama Ridwan</b></p>
+      <div class="meta" id="meta"></div>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Ganti tema terang/gelap" title="Ganti tema">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+    </button>
+  </div>
+</header>
+
+<nav class="filters" aria-label="Filter data">
+  <div class="wrap">
+    <div class="fgroup">
+      <span class="flabel" id="lblWin">Periode</span>
+      <div class="seg" role="group" aria-labelledby="lblWin" id="segWin">
+        <button type="button" data-v="24h">24 jam</button>
+        <button type="button" data-v="48h">48 jam</button>
+        <button type="button" data-v="7d">7 hari</button>
+        <button type="button" data-v="hist" id="btnHist" hidden>Riwayat</button>
+      </div>
+    </div>
+    <div class="fgroup">
+      <span class="flabel" id="lblConf">Keyakinan</span>
+      <div class="seg" role="group" aria-labelledby="lblConf" id="segConf">
+        <button type="button" data-v="nh">Nominal &amp; tinggi</button>
+        <button type="button" data-v="h">Tinggi saja</button>
+      </div>
+    </div>
+    <div class="fgroup">
+      <label class="flabel" for="selArea">Wilayah</label>
+      <select class="select" id="selArea"><option value="all">Seluruh Indonesia</option></select>
+    </div>
+    <button class="dl-btn" id="dlBtn" type="button" title="Unduh titik api sesuai filter (CSV)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
+      Unduh CSV
+    </button>
+  </div>
+  <div class="wrap hist-row" id="histRow" hidden>
+    <div class="fgroup" id="histFromGroup">
+      <select class="select" id="histYear" aria-label="Tahun" hidden></select>
+      <input class="select" type="date" id="histFrom" aria-label="Dari tanggal" hidden>
+      <span class="muted" id="histDash" hidden>s.d.</span>
+    </div>
+    <div class="fgroup">
+      <button class="step-btn" id="histPrev" type="button" aria-label="Hari sebelumnya">&lsaquo;</button>
+      <input class="select" type="date" id="histDate" aria-label="Tanggal">
+      <button class="step-btn" id="histNext" type="button" aria-label="Hari berikutnya">&rsaquo;</button>
+    </div>
+    <input type="range" id="histSlider" aria-label="Geser tanggal">
+    <button class="dl-btn" id="histPlay" type="button" style="margin-left:0">&#9654; Putar</button>
+    <div class="fgroup">
+      <span class="flabel" id="lblDur">Durasi</span>
+      <div class="seg" role="group" aria-labelledby="lblDur" id="segDur">
+        <button type="button" data-v="1">1 hari</button>
+        <button type="button" data-v="7">7 hari</button>
+        <button type="button" data-v="30">30 hari</button>
+        <button type="button" data-v="r">Rentang</button>
+      </div>
+    </div>
+    <span class="hist-note" id="histNote"></span>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="banners" id="banners" role="status"></div>
+
+  <section class="kpis" aria-label="Ringkasan">
+    <div class="card kpi hero">
+      <div class="label" id="kTotalLabel">Titik api</div>
+      <div class="value" id="kTotal">–</div>
+      <div class="foot" id="kTotalFoot"></div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Keyakinan tinggi</div>
+      <div class="value" id="kHigh">–</div>
+      <div class="foot" id="kHighFoot"></div>
+    </div>
+    <div class="card kpi">
+      <div class="label" id="kTopLabel">Provinsi terbanyak</div>
+      <div class="value" id="kTop" style="font-size:22px">–</div>
+      <div class="foot" id="kTopFoot"></div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Udara terburuk (estimasi model)</div>
+      <div class="value" id="kAir" style="font-size:22px">–</div>
+      <div class="foot" id="kAirFoot"></div>
+    </div>
+  </section>
+
+  <section class="map-grid">
+    <div class="card map-card">
+      <div id="map" role="region" aria-label="Peta titik api"></div>
+      <div class="map-loading" id="mapLoading">Memuat data…</div>
+      <details class="panel" id="panel" open>
+        <summary>Lapisan peta</summary>
+        <div class="body" id="panelBody"></div>
+      </details>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="side">
+      <div class="card">
+        <h2 id="colsTitle">7 hari terakhir</h2>
+        <p class="sub" id="colsSub">Titik api per hari (WIB)</p>
+        <div class="cols" id="cols"></div>
+        <div class="col-labels" id="colLabels"></div>
+      </div>
+      <div class="card">
+        <h2 id="rankTitle">Provinsi terbanyak</h2>
+        <p class="sub" id="rankSub"></p>
+        <div class="hbars" id="rank"></div>
+        <button class="text-btn" id="rankMore" type="button" hidden>Tampilkan semua</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="two-col" id="secTables">
+    <div class="card" id="cardKab">
+      <h2>Kabupaten/kota dengan titik api terbanyak</h2>
+      <p class="sub" id="kabSub"></p>
+      <div class="tbl-wrap"><table class="tbl" id="kabTbl"></table></div>
+      <button class="text-btn" id="kabMore" type="button" hidden>Tampilkan lebih banyak</button>
+    </div>
+    <div class="card" id="cardCtx">
+      <h2>Di mana titik api berada</h2>
+      <p class="sub" id="ctxSub"></p>
+      <div id="ctxBody"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="trendTitle">
+    <div class="trend-head">
+      <div>
+        <h2 id="trendTitle">Dibanding bulan-bulan sebelumnya</h2>
+        <p class="sub" id="trendSub" style="margin-bottom:4px"></p>
+      </div>
+      <div class="mini-seg" role="group" aria-label="Tampilan grafik" id="segTrend">
+        <button type="button" data-v="bulan">Per bulan</button>
+        <button type="button" data-v="tgl">Tanggal sama</button>
+        <button type="button" data-v="cum">Kumulatif</button>
+        <button type="button" data-v="daily">Harian (rata-rata 7 hari)</button>
+      </div>
+    </div>
+    <div class="trend-controls" id="trendControls"></div>
+    <div class="trend-legend" id="trendLegend"></div>
+    <div id="trend"></div>
+    <details style="margin-top:10px">
+      <summary class="text-btn" style="display:inline">Lihat sebagai tabel</summary>
+      <div class="tbl-wrap" style="margin-top:8px"><table class="tbl" id="ytdTbl"></table></div>
+    </details>
+    <p class="note" id="trendNote"></p>
+  </section>
+
+  <section class="card" id="secAir">
+    <h2>Kualitas udara kota</h2>
+    <p class="sub">Estimasi PM2.5 dari model CAMS (Copernicus) melalui Open-Meteo, bukan hasil alat ukur. Kategori memakai ambang ISPU PM2.5 terhadap rata-rata 24 jam.</p>
+    <div class="tbl-wrap"><table class="tbl" id="airTbl"></table></div>
+  </section>
+
+  <section class="card" id="metodologi">
+    <h2 style="margin-bottom:12px">Metodologi &amp; sumber data</h2>
+    <div class="method" id="method"></div>
+  </section>
+</main>
+
+<footer class="wrap" id="footer"></footer>
+<div class="tt" id="tt" role="tooltip"></div>
+
+<noscript><p class="wrap">Halaman ini membutuhkan JavaScript untuk menampilkan peta dan grafik.</p></noscript>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   PENGATURAN — ubah di sini bila perlu
+   ===================================================================== */
+const CONFIG = {
+  dataUrl: 'data/live/',
+  archiveUrl: 'data/archive/',
+  publisher: '',            // mis. 'Redaksi Contoh' — tampil di kaki halaman bila diisi
+  // Tahun pembanding yang ditampilkan bersama di grafik "Per bulan" (maks. 3),
+  // masing-masing dengan warna tetap di semua tampilan grafik.
+  monthlyCompareYears: [2015, 2019, 2023],
+  // Warna lapisan aerosol: [indeks aerosol, warna, keburaman]. Citra hanya
+  // menyimpan nilai indeks, jadi warna bisa diganti di sini tanpa unduh ulang.
+  aerosolRamps: {
+    light: [[0.5, '#f0c12a', 0.50], [1.5, '#e39191', 0.60], [2.5, '#b95e9d', 0.72], [4.0, '#7531b8', 0.85]],
+    dark:  [[0.5, '#fada49', 0.62], [1.5, '#eaa9bb', 0.68], [2.5, '#d179ca', 0.76], [4.0, '#a95af1', 0.86]]
+  },
+  staleHours: 6,            // peringatan bila data lebih tua dari ini
+  // Peta dasar vektor OpenFreeMap (gratis, tanpa kunci API)
+  basemap: {
+    light: 'https://tiles.openfreemap.org/styles/positron',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Data dari <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+    // Cadangan bila browser tidak mendukung WebGL
+    fallbackRaster: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    fallbackAttribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  },
+  // Citra satelit harian NASA GIBS (WMTS, tanpa kunci API)
+  gibsTrueColor: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg'
+};
+
+const WIN_MIN = { '24h': 1440, '48h': 2880, '7d': 10080 };
+const AGE_ALPHA = [0.9, 0.5, 0.25];  // < 24 jam, 24–48 jam, 2–7 hari
+const WIN_LABEL = { '24h': '24 jam terakhir', '48h': '48 jam terakhir', '7d': '7 hari terakhir' };
+const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const SAT_NAMES = [[1, 'S-NPP'], [2, 'NOAA-20'], [4, 'NOAA-21']];
+const ISPU = [
+  ['Baik', '--ispu-baik'], ['Sedang', '--ispu-sedang'], ['Tidak Sehat', '--ispu-tidak-sehat'],
+  ['Sangat Tidak Sehat', '--ispu-sangat-tidak-sehat'], ['Berbahaya', '--ispu-berbahaya']
+];
+const ISPU_VAR = Object.fromEntries(ISPU);
+
+/* ---------------- helpers ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'style') n.setAttribute('style', v);
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+}
+function svg(tag, attrs) {
+  const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v);
+  return n;
+}
+const NF = new Intl.NumberFormat('id-ID');
+const NF1 = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const NFC = new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 });
+const PCT = new Intl.NumberFormat('id-ID', { style: 'percent', maximumFractionDigits: 0 });
+const fmt = n => n == null || isNaN(n) ? '–' : NF.format(Math.round(n));
+const fmt1 = n => n == null || isNaN(n) ? '–' : NF1.format(n);
+const DTF = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+const DF = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short' });
+const fmtWib = d => DTF.format(d).replace(',', '') + ' WIB';
+const wibDate = s => new Date(s.replace(' ', 'T') + ':00+07:00');
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function isoDateAddDays(iso, n) {
+  const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+const shortDate = iso => { const [y, m, d] = iso.split('-'); return `${+d} ${BULAN[+m - 1]}`; };
+const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* abaikan */ } };
+function iconArrow(up) {
+  const s = svg('svg', { viewBox: '0 0 12 12', 'aria-hidden': 'true' });
+  s.append(svg('path', { d: up ? 'M6 2 L10.5 8.5 H1.5 Z' : 'M6 10 L10.5 3.5 H1.5 Z', fill: 'currentColor' }));
+  return s;
+}
+
+/* ---------------- tooltip ---------------- */
+const TT = $('#tt');
+function showTip(nodes, x, y) {
+  TT.replaceChildren(...nodes);
+  TT.classList.add('show');
+  const r = TT.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if (left + r.width > window.innerWidth - 8) left = x - r.width - 14;
+  if (top + r.height > window.innerHeight - 8) top = y - r.height - 14;
+  TT.style.left = Math.max(8, left) + 'px';
+  TT.style.top = Math.max(8, top) + 'px';
+}
+function hideTip() { TT.classList.remove('show'); }
+function bindTip(node, build) {
+  node.tabIndex = 0;
+  const show = e => {
+    const r = node.getBoundingClientRect();
+    const x = e && e.clientX != null ? e.clientX : r.left + r.width / 2;
+    const y = e && e.clientY != null ? e.clientY : r.top;
+    showTip(build(), x, y);
+  };
+  node.addEventListener('pointermove', show);
+  node.addEventListener('focus', () => show());
+  node.addEventListener('pointerleave', hideTip);
+  node.addEventListener('blur', hideTip);
+}
+
+/* ---------------- state ---------------- */
+const state = {
+  win: '24h', conf: 'nh', area: 'all',
+  base: 'map', imgDate: null,
+  layers: { hotspots: true, boundaries: true, wind: !isMobile(), air: true, aerosol: true },
+  windFrame: 0, ctx: {}, trend: 'bulan', rankAll: false, kabN: 10,
+  mode: 'live', histEnd: null, histDays: 1, histRange: false, trendBasis: null, trendCmp: 'set', cmpPreset: null, cmpFrom: null, cmpTo: null
+};
+let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
+let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
+const MAX_RANGE = 90;  // rentang Riwayat maksimum (hari); tiap hari = satu file arsip
+let INDEX_DAYS = [], INDEX_YEARS = [], INDEX_YB = {};  // tanggal tersedia, tahun, batas per tahun
+let map, hsLayer, provLayer, baseLayer, labelLayer, windLayer, aerosolLayer, airLayer;
+const ctxLayers = {};
+let current = { idx: [], pts: [] };
+
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  const per = p.get('periode'); if (per && WIN_MIN[per]) state.win = per;
+  if (p.get('keyakinan') === 'tinggi') state.conf = 'h';
+  const w = p.get('wilayah');
+  if (w) state._areaName = w;
+  const tg = p.get('tanggal');
+  if (tg && /^\d{4}-\d{2}-\d{2}$/.test(tg)) { state.histEnd = tg; state._histFromUrl = true; }
+  const du = Math.round(+p.get('durasi'));
+  if (du >= 1 && du <= MAX_RANGE) { state.histDays = du; state.histRange = ![1, 7, 30].includes(du); }
+}
+function writeUrl() {
+  const p = new URLSearchParams();
+  if (state.mode === 'hist') { p.set('tanggal', state.histEnd); if (state.histDays !== 1) p.set('durasi', state.histDays); }
+  else if (state.win !== '24h') p.set('periode', state.win);
+  if (state.conf === 'h') p.set('keyakinan', 'tinggi');
+  const an = areaName(state.area);
+  if (state.area !== 'all') p.set('wilayah', an);
+  const qs = p.toString();
+  history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+}
+
+/* ---------------- jendela waktu ---------------- */
+const fmtDateLong = iso => { const [y, m, d] = iso.split('-'); return `${+d} ${BULAN[+m - 1]} ${y}`; };
+const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function winMinutes() { return state.mode === 'hist' ? state.histDays * 1440 : WIN_MIN[state.win]; }
+function winLabel() {
+  if (state.mode !== 'hist') return WIN_LABEL[state.win];
+  if (state.histDays === 1) return fmtDateLong(state.histEnd);
+  return `${shortDate(isoDateAddDays(state.histEnd, 1 - state.histDays))} – ${fmtDateLong(state.histEnd)}`;
+}
+
+/* ---------------- data ---------------- */
+async function getJSON(name, optional) {
+  try {
+    const r = await fetch(CONFIG.dataUrl + name, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(name + ' ' + r.status);
+    return await r.json();
+  } catch (e) {
+    if (optional) return null;
+    throw e;
+  }
+}
+
+function prepHotspots(h) {
+  const n = h.rows.length;
+  const o = {
+    n, lon: new Float64Array(n), lat: new Float64Array(n), day: new Int16Array(n),
+    tf: new Int32Array(n), tl: new Int32Array(n), high: new Uint8Array(n), frp: new Float64Array(n),
+    sats: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
+    ctx: new Int32Array(n), cell: new Float64Array(n),
+    t0: new Date(h.t0_wib), t0Date: h.t0_date, nowMin: h.now_min, names: {}
+  };
+  h.rows.forEach((r, i) => {
+    o.lon[i] = r[0]; o.lat[i] = r[1]; o.day[i] = r[2]; o.tf[i] = r[3]; o.tl[i] = r[4];
+    o.high[i] = r[5]; o.frp[i] = r[6] == null ? NaN : r[6]; o.sats[i] = r[7]; o.nd[i] = r[8];
+    o.prov[i] = r[9]; o.kab[i] = r[10]; o.ctx[i] = r[11]; o.cell[i] = r[12];
+  });
+  for (const [id, v] of Object.entries(h.ctx_names || {})) o.names[id] = { names: v.names, groups: v.groups, idx: Int32Array.from(v.idx) };
+  return o;
+}
+const minToDate = m => new Date(H.t0.getTime() + m * 60000);
+
+function areaProvSet(area) {
+  if (area === 'all') return null;
+  if (area.startsWith('r:')) {
+    const reg = area.slice(2);
+    return new Set(S.provinces.filter(p => p.region === reg).map(p => p.i));
+  }
+  return new Set([+area.slice(2)]);
+}
+function areaName(area) {
+  if (area === 'all') return 'Seluruh Indonesia';
+  if (area.startsWith('r:')) return area.slice(2);
+  const p = S.provinces[+area.slice(2)];
+  return p ? p.name : '';
+}
+function selectRows(fromMin, toMin) {
+  const ps = areaProvSet(state.area), out = [];
+  for (let i = 0; i < H.n; i++) {
+    if (H.tl[i] < fromMin || H.tl[i] >= toMin) continue;
+    if (state.conf === 'h' && !H.high[i]) continue;
+    if (ps && !ps.has(H.prov[i])) continue;
+    out.push(i);
+  }
+  return out;
+}
+/* Satu titik per sel grid dalam periode: deteksi berulang di sel yang sama
+   (beda satelit atau beda hari) dihitung sekali. */
+function dedup(idx) {
+  const m = new Map();
+  for (const i of idx) {
+    const c = H.cell[i];
+    const a = m.get(c);
+    if (!a) { m.set(c, { i, tf: H.tf[i], tl: H.tl[i], high: H.high[i], frp: H.frp[i], sats: H.sats[i], nd: H.nd[i], days: 1 }); continue; }
+    if (!(H.frp[i] <= a.frp)) { a.i = i; a.frp = H.frp[i]; }
+    a.tf = Math.min(a.tf, H.tf[i]); a.tl = Math.max(a.tl, H.tl[i]);
+    a.high = Math.max(a.high, H.high[i]); a.sats |= H.sats[i]; a.nd += H.nd[i]; a.days++;
+  }
+  return [...m.values()];
+}
+
+/* =====================================================================
+   PETA
+   ===================================================================== */
+/* Kepadatan untuk rentang panjang: lokasi titik api per sel 0,1° (±11 km) */
+const GRID_DEG = 0.1;
+const GRID_CLASSES = [
+  { v: '--g1', min: 1, label: '1–2' }, { v: '--g2', min: 3, label: '3–9' }, { v: '--g3', min: 10, label: '10–29' },
+  { v: '--g4', min: 30, label: '30–99' }, { v: '--g5', min: 100, label: '100+' }
+];
+function gridClass(n) { let k = 0; GRID_CLASSES.forEach((c, i) => { if (n >= c.min) k = i; }); return k; }
+function toGridCells(pts) {
+  const m = new Map();
+  for (const p of pts) {
+    const ia = Math.floor(p.lat / GRID_DEG), io = Math.floor(p.lon / GRID_DEG), key = ia * 10000 + io;
+    let c = m.get(key);
+    if (!c) {
+      c = { grid: true, la0: ia * GRID_DEG, lo0: io * GRID_DEG, n: 0, high: 0, provs: new Map() };
+      c.lat = c.la0 + GRID_DEG / 2; c.lon = c.lo0 + GRID_DEG / 2;
+      m.set(key, c);
+    }
+    c.n++; c.high += p.high;
+    const pv = H.prov[p.i]; c.provs.set(pv, (c.provs.get(pv) || 0) + 1);
+  }
+  return [...m.values()];
+}
+
+const HotspotLayer = L.Layer.extend({
+  initialize() { this._pts = []; this._xy = null; this._grid = false; },
+  setData(pts, grid) {
+    this._grid = !!grid;
+    this._pts = this._grid ? toGridCells(pts) : pts;
+    if (this._map) this._redraw();
+  },
+  onAdd(m) {
+    this._map = m;
+    this._canvas = L.DomUtil.create('canvas', 'hs-canvas leaflet-zoom-hide');
+    m.getPane('hotspotPane').appendChild(this._canvas);
+    m.on('moveend resize viewreset', this._redraw, this);
+    m.on('zoomstart', this._hide, this);
+    this._redraw();
+  },
+  onRemove(m) {
+    L.DomUtil.remove(this._canvas);
+    m.off('moveend resize viewreset', this._redraw, this);
+    m.off('zoomstart', this._hide, this);
+    this._xy = null;
+  },
+  _hide() { if (this._canvas) this._canvas.style.visibility = 'hidden'; },
+  radius() {
+    const z = this._map.getZoom();
+    return z < 4.5 ? 1.5 : z < 5.5 ? 1.9 : z < 6.5 ? 2.3 : z < 7.5 ? 2.8 : z < 9.5 ? 3.4 : 4.2;
+  },
+  _redraw() {
+    const m = this._map; if (!m) return;
+    const size = m.getSize(), dpr = window.devicePixelRatio || 1, c = this._canvas;
+    c.style.visibility = '';
+    L.DomUtil.setPosition(c, m.containerPointToLayerPoint([0, 0]));
+    c.width = size.x * dpr; c.height = size.y * dpr;
+    c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, size.x, size.y);
+    if (this._grid) { this._drawGrid(g, size); return; }
+    this._rects = null;
+    const r = this.radius(), pts = this._pts;
+    const xs = new Float32Array(pts.length), ys = new Float32Array(pts.length);
+    // Satu warna merah tanpa garis tepi; umur deteksi lewat transparansi,
+    // jadi titik yang menumpuk makin merah, bukan makin hitam.
+    const color = cssVar('--hs');
+    for (let k = 0; k < pts.length; k++) {
+      const p = m.latLngToContainerPoint([pts[k].lat, pts[k].lon]);
+      xs[k] = p.x; ys[k] = p.y;
+    }
+    // gambar yang tua dulu, yang terbaru di atas
+    for (const cls of [2, 1, 0]) {
+      g.beginPath();
+      for (let k = 0; k < pts.length; k++) {
+        if (pts[k].age !== cls) continue;
+        const x = xs[k], y = ys[k];
+        if (x < -10 || y < -10 || x > size.x + 10 || y > size.y + 10) continue;
+        g.moveTo(x + r, y); g.arc(x, y, r, 0, Math.PI * 2);
+      }
+      g.globalAlpha = AGE_ALPHA[cls];
+      g.fillStyle = color;
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    this._xy = { xs, ys };
+  },
+  _drawGrid(g, size) {
+    const m = this._map, cols = GRID_CLASSES.map(c => cssVar(c.v)), rects = [];
+    g.globalAlpha = 0.9;
+    for (const c of this._pts) {
+      const a = m.latLngToContainerPoint([c.la0 + GRID_DEG, c.lo0]);
+      const b = m.latLngToContainerPoint([c.la0, c.lo0 + GRID_DEG]);
+      const w = Math.max(2, b.x - a.x), h = Math.max(2, b.y - a.y);
+      if (a.x > size.x || a.y > size.y || a.x + w < 0 || a.y + h < 0) { rects.push(null); continue; }
+      g.fillStyle = cols[gridClass(c.n)];
+      g.fillRect(a.x, a.y, w, h);
+      rects.push([a.x, a.y, w, h]);
+    }
+    g.globalAlpha = 1;
+    this._rects = rects; this._xy = null;
+  },
+  hitTest(pt) {
+    if (this._grid && this._rects) {
+      for (let k = this._rects.length - 1; k >= 0; k--) {
+        const r = this._rects[k];
+        if (r && pt.x >= r[0] - 2 && pt.x <= r[0] + r[2] + 2 && pt.y >= r[1] - 2 && pt.y <= r[1] + r[3] + 2) return this._pts[k];
+      }
+      return null;
+    }
+    if (!this._xy) return null;
+    const { xs, ys } = this._xy, lim = Math.max(9, this.radius() + 5);
+    let best = -1, bd = lim * lim;
+    for (let k = 0; k < xs.length; k++) {
+      const dx = xs[k] - pt.x, dy = ys[k] - pt.y, d = dx * dx + dy * dy;
+      if (d <= bd) { bd = d; best = k; }
+    }
+    return best >= 0 ? this._pts[best] : null;
+  }
+});
+
+function effectiveTheme() {
+  const t = document.documentElement.dataset.theme;
+  if (t) return t;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+const vectorOk = () => !!(window.maplibregl && L.maplibreGL);
+function vectorLayer(style, opts) {
+  return L.maplibreGL({ style, attributionControl: { customAttribution: CONFIG.basemap.attribution }, ...opts });
+}
+/* Hanya label (nama tempat) dari gaya OpenFreeMap, untuk ditumpuk di atas citra */
+function labelsOnly(layer) {
+  const gl = layer.getMaplibreMap && layer.getMaplibreMap();
+  if (!gl) return;
+  const hide = () => {
+    for (const l of gl.getStyle().layers) if (l.type !== 'symbol') gl.setLayoutProperty(l.id, 'visibility', 'none');
+  };
+  gl.isStyleLoaded() ? hide() : gl.once('load', hide);
+}
+function setBase() {
+  if (baseLayer) map.removeLayer(baseLayer);
+  if (labelLayer) map.removeLayer(labelLayer);
+  baseLayer = labelLayer = null;
+  const dark = effectiveTheme() === 'dark';
+  if (state.base === 'sat' && state.imgDate) {
+    baseLayer = L.tileLayer(CONFIG.gibsTrueColor.replace('{date}', state.imgDate), {
+      maxNativeZoom: 9, maxZoom: 13,
+      attribution: 'Citra: <a href="https://earthdata.nasa.gov/gibs">NASA GIBS</a> (VIIRS NOAA-20)'
+    });
+    baseLayer.addTo(map);
+    watchTiles(baseLayer, 'base');
+    if (vectorOk()) {
+      labelLayer = vectorLayer(CONFIG.basemap.dark, { pane: 'labelPane' });
+      labelLayer.addTo(map);
+      labelsOnly(labelLayer);
+    }
+  } else if (vectorOk()) {
+    baseLayer = vectorLayer(dark ? CONFIG.basemap.dark : CONFIG.basemap.light);
+    baseLayer.addTo(map);
+  } else {
+    baseLayer = L.tileLayer(CONFIG.basemap.fallbackRaster, { maxZoom: 19, attribution: CONFIG.basemap.fallbackAttribution });
+    baseLayer.addTo(map);
+  }
+}
+
+/* Tandai layer yang ubinnya gagal dimuat (mis. citra belum tersedia untuk tanggal itu) */
+const tileFail = {};
+function watchTiles(layer, key) {
+  let ok = 0, bad = 0;
+  tileFail[key] = false;
+  layer.on('tileload', () => { ok++; });
+  layer.on('tileerror', () => { bad++; if (bad >= 4 && bad > ok) { tileFail[key] = true; renderPanelNotices(); } });
+}
+
+function initMap() {
+  map = L.map('map', { zoomControl: true, minZoom: 3, maxZoom: 13, zoomSnap: 0.25, zoomDelta: 0.5, worldCopyJump: false, preferCanvas: true, attributionControl: true });
+  map.attributionControl.setPrefix(false);
+  map.createPane('aerosolPane').style.zIndex = 300;
+  map.createPane('ctxPane').style.zIndex = 350;
+  map.createPane('labelPane').style.zIndex = 390; map.getPane('labelPane').style.pointerEvents = 'none';
+  map.createPane('windPane').style.zIndex = 420; map.getPane('windPane').style.pointerEvents = 'none';
+  map.createPane('hotspotPane').style.zIndex = 450; map.getPane('hotspotPane').style.pointerEvents = 'none';
+  map.createPane('airPane').style.zIndex = 460;
+  fitIndonesia(false);
+  setBase();
+  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize()).observe($('#map'));
+
+  hsLayer = new HotspotLayer();
+  hsLayer.addTo(map);
+
+  map.on('click', e => {
+    if (!state.layers.hotspots) return;
+    const hit = hsLayer.hitTest(e.containerPoint);
+    if (hit) L.popup({ maxWidth: 320, autoPanPaddingTopLeft: [56, 16], autoPanPaddingBottomRight: [isMobile() || !$('#panel').open ? 16 : 284, 16] })
+      .setLatLng([hit.lat, hit.lon]).setContent(hit.grid ? popupGrid(hit) : popupFor(hit)).openOn(map);
+  });
+  let raf = 0;
+  map.on('mousemove', e => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const hit = state.layers.hotspots && hsLayer.hitTest(e.containerPoint);
+      map.getContainer().style.cursor = hit ? 'pointer' : '';
+    });
+  });
+}
+
+function mapPadding() {
+  const panelOpen = !isMobile() && $('#panel') && $('#panel').open;
+  return { paddingTopLeft: [16, 16], paddingBottomRight: [panelOpen ? 280 : 16, isMobile() ? 60 : 70] };
+}
+function fitIndonesia(animate) {
+  const b = L.latLngBounds([[-11, 95], [6, 141]]);
+  animate ? map.flyToBounds(b, { ...mapPadding(), duration: 0.6 }) : map.fitBounds(b, mapPadding());
+}
+function boundaryStyle(f) {
+  const ps = areaProvSet(state.area);
+  const sel = ps && ps.has(f.properties.i);
+  return { color: sel ? cssVar('--ink') : cssVar('--boundary'), weight: sel ? 1.8 : 0.8, opacity: sel ? 0.9 : 0.7, fill: false };
+}
+function initBoundaries() {
+  provLayer = L.geoJSON(PROV_GJ, { style: boundaryStyle, interactive: false });
+  if (state.layers.boundaries) provLayer.addTo(map);
+}
+
+function initContext() {
+  for (const c of S.context_layers) {
+    if (!c.file || !CTX_GJ[c.id]) continue;
+    ctxLayers[c.id] = L.geoJSON(CTX_GJ[c.id], {
+      pane: 'ctxPane', interactive: false,
+      style: { color: c.color, weight: 1, opacity: 0.9, fillColor: c.color, fillOpacity: 0.16 }
+    });
+    state.ctx[c.id] = false;
+  }
+}
+
+function setWind() {
+  if (windLayer) { map.removeLayer(windLayer); windLayer = null; }
+  if (state.mode === 'hist' || !state.layers.wind || !WIND || !L.velocityLayer) return;
+  const frame = WIND.frames[state.windFrame] || WIND.frames[0];
+  const dark = effectiveTheme() === 'dark' || state.base === 'sat';
+  const scale = dark
+    ? ['rgba(240,239,236,0.18)', 'rgba(240,239,236,0.28)', 'rgba(240,239,236,0.4)', 'rgba(255,255,255,0.55)']
+    : ['rgba(11,11,11,0.16)', 'rgba(11,11,11,0.26)', 'rgba(11,11,11,0.36)', 'rgba(11,11,11,0.48)'];
+  windLayer = L.velocityLayer({
+    displayValues: true,
+    displayOptions: { velocityType: 'Angin ' + WIND.level, position: 'bottomright', emptyString: '', angleConvention: 'meteoCW', speedUnit: 'm/s', directionString: 'Arah', speedString: 'Kecepatan', showCardinal: true },
+    data: frame.data, minVelocity: 0, maxVelocity: 14, velocityScale: 0.006,
+    particleMultiplier: isMobile() ? 1 / 650 : 1 / 420, lineWidth: 1.2, colorScale: scale, paneName: 'windPane', opacity: 0.9
+  });
+  windLayer.addTo(map);
+}
+
+/* ---- Aerosol: citra berisi nilai indeks (1..255), diwarnai di browser ---- */
+const AER_LUT = {}, AER_CACHE = new Map();
+let aerReq = 0;
+function hexRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function aerRampAt(ramp, ai) {
+  if (ai <= ramp[0][0]) return [...hexRgb(ramp[0][1]), ramp[0][2]];
+  for (let k = 1; k < ramp.length; k++) {
+    if (ai <= ramp[k][0]) {
+      const a = ramp[k - 1], b = ramp[k], t = (ai - a[0]) / (b[0] - a[0]);
+      const ca = hexRgb(a[1]), cb = hexRgb(b[1]);
+      return [...ca.map((c, j) => c + (cb[j] - c) * t), a[2] + (b[2] - a[2]) * t];
+    }
+  }
+  const z = ramp[ramp.length - 1];
+  return [...hexRgb(z[1]), z[2]];
+}
+function aerLut(theme, enc) {
+  const key = theme + enc.min + enc.max;
+  if (AER_LUT[key]) return AER_LUT[key];
+  const ramp = CONFIG.aerosolRamps[theme], lut = new Uint8ClampedArray(256 * 4);
+  for (let c = 1; c < 256; c++) {
+    const [r, g, b, a] = aerRampAt(ramp, enc.min + (c - 1) / 254 * (enc.max - enc.min));
+    lut.set([r, g, b, a * 255], c * 4);
+  }
+  return (AER_LUT[key] = lut);
+}
+function loadImg(url) {
+  return new Promise((ok, fail) => { const im = new Image(); im.onload = () => ok(im); im.onerror = fail; im.src = url; });
+}
+/* Kembalikan URL gambar siap tampil. Tanpa `enc` (format lama) gambar dipakai apa adanya. */
+async function aerosolSrc(url, enc) {
+  if (!enc) return url;
+  const theme = effectiveTheme(), key = url + '|' + theme;
+  if (AER_CACHE.has(key)) return AER_CACHE.get(key);
+  const im = await loadImg(url);
+  const cv = document.createElement('canvas');
+  cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  g.drawImage(im, 0, 0);
+  const img = g.getImageData(0, 0, cv.width, cv.height), px = img.data, lut = aerLut(theme, enc);
+  for (let i = 0; i < px.length; i += 4) {
+    const c = px[i + 3] ? px[i] : 0, o = c * 4;
+    px[i] = lut[o]; px[i + 1] = lut[o + 1]; px[i + 2] = lut[o + 2]; px[i + 3] = lut[o + 3];
+  }
+  g.putImageData(img, 0, 0);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const src = URL.createObjectURL(blob);
+  AER_CACHE.set(key, src);
+  if (AER_CACHE.size > 40) {  // batasi memori saat diputar
+    const [k0, v0] = AER_CACHE.entries().next().value;
+    AER_CACHE.delete(k0); URL.revokeObjectURL(v0);
+  }
+  return src;
+}
+function aerosolSource() {
+  if (!state.layers.aerosol) return null;
+  if (state.mode === 'hist') {
+    const e = INDEX_MAP.get(state.histEnd);
+    if (!e || !e.aer) return null;
+    const y = state.histEnd.slice(0, 4);
+    return { url: `${CONFIG.archiveUrl}${INDEX.aerosol_dir || 'aerosol'}/${y}/${state.histEnd}.png`,
+             bounds: INDEX.aerosol_bounds, enc: INDEX.aerosol_encoding || null, year: y };
+  }
+  if (!AERO) return null;
+  return { url: CONFIG.dataUrl + AERO.file + '?t=' + encodeURIComponent(AERO.to_utc),
+           bounds: AERO.bounds, enc: AERO.encoding || null, year: AERO.to_utc.slice(0, 4) };
+}
+async function setAerosol() {
+  const my = ++aerReq, src = aerosolSource();
+  const drop = () => { if (aerosolLayer) { map.removeLayer(aerosolLayer); aerosolLayer = null; } };
+  if (!src) { drop(); return; }
+  let url;
+  try { url = await aerosolSrc(src.url, src.enc); } catch (e) { url = null; }
+  if (my !== aerReq) return;  // sudah ada permintaan yang lebih baru (mis. saat diputar)
+  drop();                      // ganti setelah gambar baru siap, supaya tidak berkedip
+  if (!url) return;
+  aerosolLayer = L.imageOverlay(url, src.bounds, {
+    pane: 'aerosolPane', interactive: false,
+    attribution: `Aerosol: mengandung data Copernicus Sentinel yang dimodifikasi (${src.year})`
+  });
+  aerosolLayer.addTo(map);
+}
+function aerosolLegendGradient() {
+  const ramp = CONFIG.aerosolRamps[effectiveTheme()];
+  const lo = ramp[0][0], hi = ramp[ramp.length - 1][0];
+  return 'linear-gradient(90deg, ' + ramp.map(([ai, hx, a]) =>
+    `rgba(${hexRgb(hx).join(',')},${a}) ${Math.round((ai - lo) / (hi - lo) * 100)}%`).join(', ') + ')';
+}
+
+function setAir() {
+  if (airLayer) { map.removeLayer(airLayer); airLayer = null; }
+  if (state.mode === 'hist' || !state.layers.air || !AIR) return;
+  airLayer = L.layerGroup();
+  for (const c of AIR.cities) {
+    if (!c.category) continue;
+    const icon = L.divIcon({
+      className: 'aq-icon' + (c.category === 'Berbahaya' ? ' bahaya' : ''),
+      html: `<span style="background:var(${ISPU_VAR[c.category] || '--muted'})"></span>`,
+      iconSize: [11, 11], iconAnchor: [5.5, 5.5]
+    });
+    const mk = L.marker([c.lat, c.lon], { icon, pane: 'airPane', keyboard: false });
+    mk.bindTooltip(() => {
+      const d = el('div', null,
+        el('div', { style: 'font-weight:650' , text: c.name }),
+        el('div', null, `PM2.5 rata-rata 24 jam: `, el('b', { text: `${fmt1(c.pm25_24h)} µg/m³` })),
+        el('div', { text: `Kategori: ${c.category}` }),
+        el('div', { class: 'muted', text: 'Estimasi model CAMS' }));
+      return d;
+    }, { direction: 'top', offset: [0, -8] });
+    airLayer.addLayer(mk);
+  }
+  airLayer.addTo(map);
+}
+
+function popupFor(p) {
+  const i = p.i;
+  const prov = S.provinces[H.prov[i]];
+  const kab = H.kab[i] >= 0 && S.kabupaten.length ? S.kabupaten[H.kab[i]] : null;
+  const sats = SAT_NAMES.filter(([b]) => p.sats & b).map(([, n]) => n).join(', ');
+  const ageTxt = ['kurang dari 24 jam', '24–48 jam lalu', '2–7 hari lalu'][p.age];
+  const rows = [
+    ['Deteksi pertama', fmtWib(minToDate(p.tf))],
+    ['Deteksi terakhir', fmtWib(minToDate(p.tl))],
+    ['Satelit', sats],
+    ['Jumlah deteksi', fmt(p.nd) + (p.days > 1 ? ` dalam ${p.days} hari` : '')],
+    ['Keyakinan', p.high ? 'Tinggi' : 'Nominal'],
+    ['FRP maks.', isNaN(p.frp) ? '–' : fmt1(p.frp) + ' MW'],
+    ['Provinsi', prov ? prov.name : '–']
+  ];
+  if (kab) rows.push(['Kab./kota', kab.name]);
+  for (const c of S.context_layers) {
+    if (!(H.ctx[i] & c.bit)) continue;
+    let v = 'Ya';
+    if (c.ranked && H.names[c.id]) {
+      const j = H.names[c.id].idx[i];
+      if (j >= 0) v = H.names[c.id].names[j] + (H.names[c.id].groups[j] ? ` (${H.names[c.id].groups[j]})` : '');
+    }
+    rows.push([c.label, v]);
+  }
+  rows.push(['Koordinat', `${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`]);
+  const dl = el('dl');
+  for (const [k, v] of rows) dl.append(el('dt', { text: k }), el('dd', { text: v }));
+  return el('div', { class: 'pp' },
+    el('h3', { text: 'Titik api' }),
+    el('div', { class: 'when', text: state.mode === 'hist' ? `Arsip ${winLabel()}` : `Terakhir terdeteksi ${ageTxt}` }),
+    dl,
+    el('div', { class: 'links' },
+      el('a', { href: `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`, target: '_blank', rel: 'noopener', text: 'Buka lokasi di Google Maps' })));
+}
+
+function popupGrid(c) {
+  const top = [...c.provs].sort((a, b) => b[1] - a[1])[0];
+  const dl = el('dl');
+  const rows = [['Provinsi', top && S.provinces[top[0]] ? S.provinces[top[0]].name : '–'],
+    ['Keyakinan tinggi', fmt(c.high)], ['Pusat sel', `${c.lat.toFixed(2)}, ${c.lon.toFixed(2)}`]];
+  for (const [k, v] of rows) dl.append(el('dt', { text: k }), el('dd', { text: v }));
+  return el('div', { class: 'pp' },
+    el('h3', { text: `${fmt(c.n)} lokasi titik api` }),
+    el('div', { class: 'when', text: `Sel ±11 km · ${winLabel()}` }), dl,
+    el('div', { class: 'links muted', text: 'Pilih durasi 1 atau 7 hari untuk melihat titik satu per satu.' }));
+}
+
+/* ---------------- panel lapisan ---------------- */
+function segButtons(values, cur, onPick, cls = 'mini-seg') {
+  const wrap = el('div', { class: cls, role: 'group' });
+  for (const [v, label] of values) {
+    wrap.append(el('button', { type: 'button', 'aria-pressed': String(v === cur), onclick: () => onPick(v), text: label }));
+  }
+  return wrap;
+}
+function checkRow(key, label, hint, checked, onChange, disabled) {
+  const inp = el('input', { type: 'checkbox', id: 'lay-' + key, disabled: !!disabled });
+  inp.checked = checked && !disabled;
+  inp.addEventListener('change', () => onChange(inp.checked));
+  return el('label', { class: 'row', for: 'lay-' + key }, inp, el('span', null, label, hint ? el('span', { class: 'hint', text: hint }) : null));
+}
+function imageDates() {
+  const today = S.generated_wib.slice(0, 10);
+  return Array.from({ length: 7 }, (_, k) => isoDateAddDays(today, -k));
+}
+function renderPanel() {
+  const b = $('#panelBody');
+  b.replaceChildren();
+  b.append(el('div', { class: 'group-title', text: 'Data' }));
+  b.append(checkRow('hs', 'Titik api', null, state.layers.hotspots, v => { state.layers.hotspots = v; v ? hsLayer.addTo(map) : map.removeLayer(hsLayer); renderLegend(); }));
+  const hist = state.mode === 'hist';
+  if (WIND) {
+    b.append(checkRow('wind', 'Arah angin', hist ? 'Hanya untuk kondisi terkini' : `${WIND.level} · animasi partikel`, state.layers.wind, v => { state.layers.wind = v; setWind(); renderPanel(); renderLegend(); }, hist));
+    if (state.layers.wind && !hist) {
+      const sub = el('div', { class: 'sublist' });
+      sub.append(segButtons(WIND.frames.map((f, k) => [k, f.offset_h === 0 ? 'Sekarang' : `+${f.offset_h} jam`]), state.windFrame,
+        v => { state.windFrame = v; setWind(); renderPanel(); renderLegend(); }));
+      b.append(sub);
+    }
+  }
+  if (AIR) b.append(checkRow('air', 'Kualitas udara kota', hist ? 'Hanya untuk kondisi terkini' : 'Estimasi PM2.5, kategori ISPU', state.layers.air, v => { state.layers.air = v; setAir(); renderLegend(); }, hist));
+  const aerSet = v => { state.layers.aerosol = v; setAerosol(); renderLegend(); };
+  if (hist && INDEX && INDEX.days.some(d => d.aer)) {
+    const e = INDEX_MAP.get(state.histEnd);
+    b.append(checkRow('aer', 'Asap & aerosol (Sentinel-5P)', e && e.aer ? `Indeks aerosol UV, ${fmtDateLong(state.histEnd)}` : 'Tidak ada citra untuk tanggal ini', state.layers.aerosol, aerSet));
+  } else if (!hist && AERO) {
+    b.append(checkRow('aer', 'Asap & aerosol (Sentinel-5P)', `Indeks aerosol UV, 24 jam s.d. ${fmtWib(new Date(AERO.to_utc))}`, state.layers.aerosol, aerSet));
+  }
+  b.append(checkRow('bnd', 'Batas provinsi', null, state.layers.boundaries, v => { state.layers.boundaries = v; v ? provLayer.addTo(map) : map.removeLayer(provLayer); }));
+  for (const c of S.context_layers) {
+    if (!ctxLayers[c.id]) continue;
+    b.append(checkRow('ctx-' + c.id, c.label, null, state.ctx[c.id], v => { state.ctx[c.id] = v; v ? ctxLayers[c.id].addTo(map) : map.removeLayer(ctxLayers[c.id]); renderLegend(); }));
+  }
+  b.append(el('div', { class: 'group-title', text: 'Peta dasar' }));
+  b.append(segButtons([['map', 'Peta'], ['sat', 'Citra satelit']], state.base, v => {
+    state.base = v; setBase(); setWind(); hsLayer._redraw(); renderPanel(); renderLegend();
+  }));
+  if (state.base === 'sat') {
+    const sel = el('select', { class: 'select', 'aria-label': 'Tanggal citra' });
+    for (const d of imageDates()) {
+      const o = el('option', { value: d, text: shortDate(d) + ' ' + d.slice(0, 4) });
+      if (d === state.imgDate) o.selected = true;
+      sel.append(o);
+    }
+    sel.addEventListener('change', () => { state.imgDate = sel.value; setBase(); renderPanel(); });
+    b.append(el('label', { class: 'row', style: 'align-items:center' }, el('span', { class: 'hint', style: 'margin:0', text: 'Tanggal citra (UTC)' }), sel));
+    if (state.base === 'sat' && tileFail.base) b.append(el('div', { class: 'notice', style: 'margin-left:0', text: 'Citra belum tersedia untuk tanggal ini; pilih tanggal sebelumnya.' }));
+  }
+}
+function renderPanelNotices() { renderPanel(); }
+
+function renderLegend() {
+  const lg = $('#legend');
+  lg.replaceChildren();
+  const hist = state.mode === 'hist';
+  if (state.layers.hotspots && hist && state.histDays > 7) {
+    const r = el('div', { class: 'lrow' }, el('span', { class: 'lt', text: 'Lokasi titik api per sel ±11 km' }));
+    for (const c of GRID_CLASSES) r.append(el('span', { class: 'key' }, el('i', { class: 'gsq', style: `background:var(${c.v})` }), c.label));
+    lg.append(r);
+  } else if (state.layers.hotspots) {
+    const r = el('div', { class: 'lrow' }, el('span', { class: 'lt', text: 'Titik api' }));
+    const e = state.histEnd;
+    const labels = hist
+      ? [shortDate(e), shortDate(isoDateAddDays(e, -1)), `${shortDate(isoDateAddDays(e, -6))}–${shortDate(isoDateAddDays(e, -2))}`]
+      : ['< 24 jam', '24–48 jam', '2–7 hari'];
+    const nCls = hist ? (state.histDays === 1 ? 1 : 3) : (state.win === '24h' ? 1 : state.win === '48h' ? 2 : 3);
+    labels.slice(0, nCls).forEach((t, k) => {
+      r.append(el('span', { class: 'key' }, el('i', { class: 'dot', style: `background:var(--hs);opacity:${AGE_ALPHA[k]};box-shadow:none` }), t));
+    });
+    lg.append(r);
+  }
+  if (state.layers.air && AIR && !hist) {
+    const r = el('div', { class: 'lrow' }, el('span', { class: 'lt', text: 'Udara' }));
+    for (const [name, v] of ISPU) r.append(el('span', { class: 'key' }, el('i', { class: 'sq', style: `background:var(${v})` + (name === 'Berbahaya' ? ';box-shadow:0 0 0 1.5px var(--ink-2)' : '') }), name));
+    lg.append(r);
+  }
+  const aerSrc = aerosolSource();
+  if (aerSrc) {
+    const grad = aerSrc.enc ? aerosolLegendGradient() : 'linear-gradient(90deg, #e3c8ff, #c08cf0, #9b59d9, #7a2fbf)';
+    lg.append(el('div', { class: 'lrow' }, el('span', { class: 'lt', text: 'Aerosol' }),
+      el('span', { class: 'key' }, el('span', { text: 'tipis' }),
+        el('i', { class: 'grad', style: `background:${grad}` }), el('span', { text: 'pekat' })),
+      el('span', { class: 'muted', text: hist ? `Sentinel-5P, ${fmtDateLong(state.histEnd)}` : `Sentinel-5P, s.d. ${fmtWib(new Date(AERO.to_utc))}` })));
+  }
+  if (state.layers.wind && WIND && !hist) {
+    const f = WIND.frames[state.windFrame] || WIND.frames[0];
+    lg.append(el('div', { class: 'lrow muted', text: `Garis bergerak = arah angin ${WIND.level}, ${shortDate(f.time_wib.slice(0, 10))} ${f.time_wib.slice(11)} WIB` }));
+  }
+  for (const c of S.context_layers) {
+    if (!state.ctx[c.id]) continue;
+    lg.append(el('div', { class: 'lrow' }, el('span', { class: 'key' }, el('i', { class: 'sw', style: `background:${c.color};opacity:.55` }), c.label)));
+  }
+  lg.hidden = !lg.childElementCount;
+}
+
+/* =====================================================================
+   RINGKASAN & GRAFIK
+   ===================================================================== */
+function update() {
+  const now = H.nowMin;
+  current.idx = selectRows(now - winMinutes(), Infinity);
+  const agg = dedup(current.idx);
+  current.pts = agg.map(a => ({
+    ...a, lat: H.lat[a.i], lon: H.lon[a.i],
+    age: now - a.tl < 1440 ? 0 : now - a.tl < 2880 ? 1 : 2
+  }));
+  hsLayer.setData(current.pts, state.mode === 'hist' && state.histDays > 7);
+  if (provLayer) provLayer.setStyle(boundaryStyle);
+  renderKpis(agg);
+  renderCols();
+  renderRank(agg);
+  renderKab(agg);
+  renderCtx(agg);
+  renderTrend();
+  renderLegend();
+  writeUrl();
+}
+
+function renderKpis(agg) {
+  const total = agg.length;
+  const high = agg.reduce((s, a) => s + a.high, 0);
+  $('#kTotalLabel').textContent = `Titik api, ${winLabel()}` + (state.area !== 'all' ? ` · ${areaName(state.area)}` : '');
+  $('#kTotal').textContent = fmt(total);
+  const foot = $('#kTotalFoot'); foot.replaceChildren();
+  const W = winMinutes();
+  const prevOk = state.mode === 'hist' ? H.prevLoaded : state.win === '24h';
+  if (prevOk) {
+    const what = state.mode !== 'hist' ? '24 jam sebelumnya' : state.histDays === 1 ? 'hari sebelumnya' : `${state.histDays} hari sebelumnya`;
+    const prev = dedup(selectRows(H.nowMin - 2 * W, H.nowMin - W)).length;
+    if (prev > 0) {
+      const ch = (total - prev) / prev;
+      const cls = Math.abs(ch) < 0.05 ? 'flat' : ch > 0 ? 'up' : 'down';
+      const d = el('span', { class: 'delta ' + cls });
+      if (cls !== 'flat') d.append(iconArrow(ch > 0));
+      d.append((ch > 0 ? '+' : '') + PCT.format(ch));
+      foot.append(d, el('span', { text: `dibanding ${what} (${fmt(prev)})` }));
+    } else foot.append(el('span', { text: `Tidak ada titik api pada ${what}` }));
+  } else {
+    foot.append(el('span', { text: 'Lokasi yang terdeteksi berulang dalam periode ini dihitung sekali' }));
+  }
+  $('#kHigh').textContent = fmt(high);
+  $('#kHighFoot').textContent = state.conf === 'h' ? 'Filter "Tinggi saja" sedang aktif' : total ? `${PCT.format(high / total)} dari semua titik` : '—';
+
+  // wilayah terbanyak
+  const byProv = countBy(agg, a => H.prov[a.i]);
+  const ps = areaProvSet(state.area);
+  let top = null;
+  if (ps && ps.size === 1 && S.kabupaten.length) {
+    const byKab = countBy(agg, a => H.kab[a.i]);
+    $('#kTopLabel').textContent = 'Kabupaten/kota terbanyak';
+    top = maxEntry(byKab, k => k >= 0 ? S.kabupaten[k].name : null);
+  } else {
+    $('#kTopLabel').textContent = 'Provinsi terbanyak';
+    top = maxEntry(byProv, k => S.provinces[k] ? S.provinces[k].name : null);
+  }
+  $('#kTop').textContent = top ? top[0] : '–';
+  $('#kTopFoot').textContent = top ? `${fmt(top[1])} titik · ${PCT.format(top[1] / total)} dari total` : 'Tidak ada titik api';
+
+  // udara
+  const kAir = $('#kAir'), kAirFoot = $('#kAirFoot');
+  kAirFoot.replaceChildren();
+  if (state.mode === 'hist') { kAir.textContent = '–'; kAirFoot.textContent = 'Hanya tersedia untuk kondisi terkini'; }
+  else if (AIR) {
+    const cs = AIR.cities.filter(c => c.pm25_24h != null).sort((a, b) => b.pm25_24h - a.pm25_24h);
+    const w = cs[0];
+    if (w) {
+      kAir.textContent = w.name;
+      kAirFoot.append(el('span', { class: 'chip' }, el('i', { style: `background:var(${ISPU_VAR[w.category]})` }), w.category),
+        el('span', { text: `PM2.5 ${fmt1(w.pm25_24h)} µg/m³ (24 jam)` }));
+    }
+  } else { kAir.textContent = '–'; kAirFoot.textContent = 'Data kualitas udara tidak tersedia'; }
+}
+function countBy(arr, keyFn) {
+  const m = new Map();
+  for (const a of arr) { const k = keyFn(a); m.set(k, (m.get(k) || 0) + 1); }
+  return m;
+}
+function countHighBy(arr, keyFn) {
+  const m = new Map();
+  for (const a of arr) if (a.high) { const k = keyFn(a); m.set(k, (m.get(k) || 0) + 1); }
+  return m;
+}
+function maxEntry(m, nameFn) {
+  let best = null;
+  for (const [k, v] of m) { const n = nameFn(k); if (n && (!best || v > best[1])) best = [n, v]; }
+  return best;
+}
+
+/* Nilai 3 satelit per tanggal (arsip) untuk wilayah & keyakinan terpilih */
+function multiValue(iso) {
+  const M = YOY && YOY.multi;
+  if (M && +iso.slice(0, 4) === M.year) {
+    const k = YOY.days.indexOf(iso.slice(5));
+    const obj = M[state.conf] || {}, tot = obj[YOY.total_key];
+    if (k >= 0 && tot && tot[k] != null) {
+      if (state.area === 'all') return tot[k];
+      const ps = areaProvSet(state.area);
+      return S.provinces.filter(p => ps.has(p.i)).reduce((s, p) => s + (obj[p.name] ? (obj[p.name][k] || 0) : 0), 0);
+    }
+  }
+  const e = INDEX_MAP.get(iso);
+  return e && state.area === 'all' ? (state.conf === 'h' ? e.h : e.nh) : null;
+}
+function renderColsHist() {
+  const box = $('#cols'), labs = $('#colLabels');
+  box.replaceChildren(); labs.replaceChildren();
+  $('#colsTitle').textContent = '7 hari';
+  const dates = Array.from({ length: 7 }, (_, k) => isoDateAddDays(state.histEnd, k - 6));
+  const vals = dates.map(multiValue);
+  const max = Math.max(1, ...vals.map(v => v || 0));
+  const maxIdx = vals.indexOf(Math.max(...vals.map(v => v || 0)));
+  $('#colsSub').textContent = `Hingga ${fmtDateLong(state.histEnd)} · ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'} · ${areaName(state.area)} · klik batang untuk membuka harinya`;
+  dates.forEach((iso, k) => {
+    const v = vals[k], sel = k === 6, ok = INDEX_MAP.has(iso);
+    const col = el('div', { class: 'col' + (ok ? ' clickable' : ''), role: 'img', 'aria-label': `${shortDate(iso)}: ${v == null ? 'tidak ada data' : fmt(v) + ' titik api'}` });
+    const h = v == null ? 0 : Math.max(1.5, v / max * 100);
+    col.append(el('div', { class: 'bar', style: `height:${h}%` + (sel ? '' : ';opacity:.75') }));
+    if (v != null && (k === maxIdx || sel)) col.append(el('div', { class: 'cap', style: `bottom:${h}%`, text: fmt(v) }));
+    bindTip(col, () => [el('div', { class: 'th', text: DF.format(new Date(iso + 'T12:00:00+07:00')) }),
+      el('div', { class: 'tr' }, el('span', { class: 'k', text: 'Titik api' }), el('b', { text: v == null ? '–' : fmt(v) }))]);
+    if (ok) col.addEventListener('click', () => { state.histEnd = iso; stopPlay(); refreshHist(); });
+    box.append(col);
+    labs.append(el('div', { text: shortDate(iso), style: sel ? 'font-weight:650;color:var(--ink)' : null }));
+  });
+}
+function renderCols() {
+  if (state.mode === 'hist') return renderColsHist();
+  $('#colsTitle').textContent = '7 hari terakhir';
+  const box = $('#cols'), labs = $('#colLabels');
+  box.replaceChildren(); labs.replaceChildren();
+  const ps = areaProvSet(state.area);
+  const counts = new Array(8).fill(0);
+  for (let i = 0; i < H.n; i++) {
+    if (state.conf === 'h' && !H.high[i]) continue;
+    if (ps && !ps.has(H.prov[i])) continue;
+    counts[H.day[i]]++;
+  }
+  const days = [1, 2, 3, 4, 5, 6, 7];
+  const vals = days.map(d => counts[d] || 0);
+  const max = Math.max(1, ...vals);
+  const maxIdx = vals.indexOf(Math.max(...vals));
+  $('#colsSub').textContent = `Titik api per hari (WIB), ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'} · ${areaName(state.area)}`;
+  days.forEach((d, k) => {
+    const iso = isoDateAddDays(H.t0Date, d);
+    const partial = d === 7;
+    const col = el('div', { class: 'col' + (partial ? ' partial' : ''), role: 'img', 'aria-label': `${shortDate(iso)}: ${fmt(vals[k])} titik api${partial ? ' (sementara)' : ''}` });
+    const h = Math.max(1.5, vals[k] / max * 100);
+    const bar = el('div', { class: 'bar', style: `height:${h}%` });
+    col.append(bar);
+    if (k === maxIdx || partial) col.append(el('div', { class: 'cap', style: `bottom:${h}%`, text: fmt(vals[k]) }));
+    bindTip(col, () => [el('div', { class: 'th', text: DF.format(new Date(iso + 'T12:00:00+07:00')) + (partial ? ' · sementara' : '') }),
+      el('div', { class: 'tr' }, el('span', { class: 'k', text: 'Titik api' }), el('b', { text: fmt(vals[k]) }))]);
+    box.append(col);
+    labs.append(el('div', { text: partial ? 'Hari ini' : shortDate(iso) }));
+  });
+}
+
+function renderRank(agg) {
+  const box = $('#rank'); box.replaceChildren();
+  const ps = areaProvSet(state.area);
+  const byKab = ps && ps.size === 1 && S.kabupaten.length;
+  let items;
+  if (byKab) {
+    const m = countBy(agg, a => H.kab[a.i]), mh = countHighBy(agg, a => H.kab[a.i]);
+    items = [...m].filter(([k]) => k >= 0).map(([k, v]) => ({ name: S.kabupaten[k].name, v, h: mh.get(k) || 0 }));
+    $('#rankTitle').textContent = 'Kabupaten/kota terbanyak';
+  } else {
+    const m = countBy(agg, a => H.prov[a.i]), mh = countHighBy(agg, a => H.prov[a.i]);
+    items = [...m].filter(([k]) => S.provinces[k]).map(([k, v]) => ({ name: S.provinces[k].name, v, h: mh.get(k) || 0 }));
+    $('#rankTitle').textContent = 'Provinsi terbanyak';
+  }
+  items.sort((a, b) => b.v - a.v);
+  const total = agg.length;
+  $('#rankSub').textContent = `${winLabel()} · ${areaName(state.area)}`;
+  if (!items.length) { box.append(el('div', { class: 'empty', text: 'Tidak ada titik api pada pilihan ini.' })); $('#rankMore').hidden = true; return; }
+  const shown = state.rankAll ? items : items.slice(0, 10);
+  const max = items[0].v;
+  for (const it of shown) {
+    const row = el('div', { class: 'hbar', role: 'img', 'aria-label': `${it.name}: ${fmt(it.v)} titik api` },
+      el('div', { class: 'name', title: it.name, text: it.name }),
+      el('div', { class: 'track' }, el('div', { class: 'bar', style: `width:calc(${it.v / max} * (100% - 48px))` }), el('span', { class: 'val', text: fmt(it.v) })));
+    bindTip(row, () => [el('div', { class: 'th', text: it.name }),
+      el('div', { class: 'tr' }, el('span', { class: 'k', text: 'Titik api' }), el('b', { text: fmt(it.v) })),
+      el('div', { class: 'tr' }, el('span', { class: 'k', text: 'Keyakinan tinggi' }), el('b', { text: fmt(it.h) })),
+      el('div', { class: 'tr' }, el('span', { class: 'k', text: 'Porsi' }), el('b', { text: PCT.format(it.v / total) }))]);
+    box.append(row);
+  }
+  const more = $('#rankMore');
+  more.hidden = items.length <= 10;
+  more.textContent = state.rankAll ? 'Tampilkan 10 teratas' : `Tampilkan semua (${items.length})`;
+}
+
+function renderKab(agg) {
+  const card = $('#cardKab');
+  if (!S.kabupaten.length) { card.hidden = true; return; }
+  card.hidden = false;
+  const m = countBy(agg, a => H.kab[a.i]), mh = countHighBy(agg, a => H.kab[a.i]);
+  const items = [...m].filter(([k]) => k >= 0).map(([k, v]) => ({ k, v, h: mh.get(k) || 0 })).sort((a, b) => b.v - a.v);
+  $('#kabSub').textContent = `${winLabel()} · ${areaName(state.area)}`;
+  const t = $('#kabTbl'); t.replaceChildren();
+  t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Kabupaten/kota' }), el('th', { text: 'Provinsi' }), el('th', { class: 'r', text: 'Titik api' }), el('th', { class: 'r', text: 'Kyk. tinggi' }))));
+  const tb = el('tbody');
+  items.slice(0, state.kabN).forEach((it, n) => {
+    const kab = S.kabupaten[it.k];
+    tb.append(el('tr', null, el('td', { class: 'rank', text: n + 1 }), el('td', { text: kab.name }), el('td', { class: 'grp', text: S.provinces[kab.prov] ? S.provinces[kab.prov].name : '' }), el('td', { class: 'r', text: fmt(it.v) }), el('td', { class: 'r', text: fmt(it.h) })));
+  });
+  if (!items.length) tb.append(el('tr', null, el('td', { colspan: 5, class: 'muted', text: 'Tidak ada titik api pada pilihan ini.' })));
+  t.append(tb);
+  const more = $('#kabMore');
+  more.hidden = items.length <= state.kabN;
+  more.textContent = `Tampilkan lebih banyak (${items.length - Math.min(items.length, state.kabN)} lagi)`;
+}
+
+function renderCtx(agg) {
+  const card = $('#cardCtx'), body = $('#ctxBody');
+  const layers = S.context_layers;
+  const secT = $('#secTables');
+  secT.hidden = !layers.length && !S.kabupaten.length;
+  secT.style.gridTemplateColumns = (layers.length && S.kabupaten.length) ? '' : '1fr';
+  if (!layers.length) { card.hidden = true; return; }
+  card.hidden = false;
+  body.replaceChildren();
+  const total = agg.length;
+  $('#ctxSub').textContent = `Porsi titik api di dalam kawasan · ${winLabel()} · ${areaName(state.area)}`;
+  for (const c of layers) {
+    const n = agg.reduce((s, a) => s + ((H.ctx[a.i] & c.bit) ? 1 : 0), 0);
+    const share = total ? n / total : 0;
+    body.append(el('div', { class: 'meter' },
+      el('div', { class: 'mtop' }, el('span', { text: c.label }), el('span', { class: 'num ink-2', text: `${fmt(n)} titik · ${PCT.format(share)}` })),
+      el('div', { class: 'mtrack', role: 'img', 'aria-label': `${c.label}: ${PCT.format(share)}` }, el('div', { class: 'mfill', style: `width:${share * 100}%` }))));
+  }
+  for (const c of layers.filter(l => l.ranked && H.names[l.id])) {
+    const nm = H.names[c.id];
+    const m = countBy(agg.filter(a => nm.idx[a.i] >= 0), a => nm.idx[a.i]);
+    const items = [...m].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    body.append(el('h3', { style: 'font-size:13.5px;margin:18px 0 4px', text: `${c.label}: titik api terbanyak` }));
+    const t = el('table', { class: 'tbl' });
+    t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Nama' }), el('th', { text: 'Grup' }), el('th', { class: 'r', text: 'Titik api' }))));
+    const tb = el('tbody');
+    items.forEach(([k, v], n) => tb.append(el('tr', null, el('td', { class: 'rank', text: n + 1 }), el('td', { text: nm.names[k] }), el('td', { class: 'grp', text: nm.groups[k] || '–' }), el('td', { class: 'r', text: fmt(v) }))));
+    if (!items.length) tb.append(el('tr', null, el('td', { colspan: 4, class: 'muted', text: 'Tidak ada titik api di kawasan ini.' })));
+    t.append(tb);
+    body.append(el('div', { class: 'tbl-wrap' }, t));
+  }
+}
+
+/* ---------------- tren antartahun ---------------- */
+function areaSeries(obj) {
+  const tot = obj[YOY.total_key];
+  if (!tot) return null;
+  if (state.area === 'all') return tot.slice();
+  const ps = areaProvSet(state.area);
+  const names = S.provinces.filter(p => ps.has(p.i)).map(p => p.name);
+  return tot.map((v, k) => v == null ? null : names.reduce((s, n) => s + (obj[n] ? (obj[n][k] || 0) : 0), 0));
+}
+function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+function transformSeries(arr, year, mode) {
+  const a = arr.slice();
+  if (!isLeap(+year) && a[59] == null) a[59] = '__skip__';
+  const out = new Array(366).fill(null);
+  if (mode === 'cum') {
+    let run = 0, started = false;
+    for (let k = 0; k < 366; k++) {
+      if (a[k] === '__skip__') { out[k] = started ? run : null; continue; }
+      if (a[k] == null) continue;
+      run += a[k]; started = true; out[k] = run;
+    }
+    // jangan perpanjang melewati data terakhir
+  } else {
+    for (let k = 0; k < 366; k++) {
+      if (a[k] == null) continue;
+      if (a[k] === '__skip__') { out[k] = null; continue; }
+      let s = 0, n = 0;
+      for (let j = Math.max(0, k - 6); j <= k; j++) if (a[j] != null && a[j] !== '__skip__') { s += a[j]; n++; }
+      out[k] = n >= 4 ? s / n : null;
+    }
+    if (out[59] == null && out[58] != null && out[60] != null) out[59] = (out[58] + out[60]) / 2;
+  }
+  return out;
+}
+/* Skala sumbu dengan langkah "bulat" (1, 2, 2,5, 5 × 10^n) */
+function niceScale(v, target = 4) {
+  if (!(v > 0)) return { max: 10, step: 2.5 };
+  const raw = v / target, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw);
+  return { max: Math.ceil(v / step) * step, step };
+}
+const slotLabel = k => { const md = YOY.days[k]; return `${+md.slice(3)} ${BULAN[+md.slice(0, 2) - 1]}`; };
+
+/* Warna tetap per tahun: tahun pembanding pilihan berwarna, tahun lain abu-abu */
+function yearColor(y) {
+  const i = (CONFIG.monthlyCompareYears || []).map(String).indexOf(String(y));
+  return i >= 0 && i < 3 ? `var(--y${i + 1})` : 'var(--past)';
+}
+function joinYears(ys) {
+  return ys.length < 2 ? ys.join('') : ys.slice(0, -1).join(', ') + ' & ' + ys[ys.length - 1];
+}
+
+function renderTrend() {
+  const box = $('#trend'); box.replaceChildren();
+  const legend = $('#trendLegend'); legend.replaceChildren();
+  const ytdT = $('#ytdTbl'); ytdT.replaceChildren();
+  document.querySelectorAll('#segTrend button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.trend)));
+  $('#trendControls').replaceChildren();
+  if (state.trend === 'bulan' && YOY && (Object.keys(YOY.series || {}).length || YOY.multi)) return renderMonthly(box, legend, ytdT);
+  if (state.trend === 'tgl' && YOY && Object.keys(YOY.series || {}).length) return renderSameDate(box, legend, ytdT);
+  if (!YOY || !Object.keys(YOY.series || {}).length) {
+    box.append(el('div', { class: 'empty', text: 'Data perbandingan antartahun belum tersedia. Jalankan pengisian arsip (backfill) satu kali.' }));
+    $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
+    return;
+  }
+  const cy = String(YOY.current_year);
+  const years = Object.keys(YOY.series).sort();
+  const key = state.conf;
+  const series = years.map(y => {
+    const raw = areaSeries(YOY.series[y][key] || {});
+    return raw ? { year: y, raw, vals: transformSeries(raw, y, state.trend) } : null;
+  }).filter(Boolean);
+  const cur = series.find(s => s.year === cy);
+  const lastK = cur ? cur.vals.reduce((m, v, k) => v != null ? k : m, -1) : -1;
+  $('#trendSub').textContent = `${state.trend === 'cum' ? 'Jumlah titik api sejak 1 Januari' : 'Titik api per hari, rata-rata 7 hari'} · ${areaName(state.area)} · satu satelit (${YOY.ref_label}) agar sebanding antartahun`;
+  legend.append(el('span', { class: 'lk' }, el('i', { style: 'background:var(--accent);height:2px' }), `${cy} (tahun ini)`));
+  const pastYears = series.filter(s => s.year !== cy).map(s => s.year);
+  for (const yy of pastYears) if (yearColor(yy) !== 'var(--past)') legend.append(el('span', { class: 'lk' }, el('i', { style: `background:${yearColor(yy)};height:2px` }), yy));
+  const others = pastYears.filter(yy => yearColor(yy) === 'var(--past)');
+  if (others.length) legend.append(el('span', { class: 'lk' }, el('i', { style: 'background:var(--past);height:2px' }), others.length === pastYears.length ? 'Tahun-tahun sebelumnya' : `Tahun lain (${joinYears(others)})`));
+
+  const W = Math.max(300, box.clientWidth);
+  const Hh = W < 600 ? 250 : 320;
+  const m = { t: 14, r: W < 600 ? 44 : 58, b: 26, l: 44 };
+  const pw = W - m.l - m.r, ph = Hh - m.t - m.b;
+  let ymax = 0;
+  for (const s of series) for (const v of s.vals) if (v != null && v > ymax) ymax = v;
+  const sc = niceScale(ymax * 1.02);
+  ymax = sc.max;
+  const x = k => m.l + (k / 365) * pw;
+  const y = v => m.t + (1 - v / ymax) * ph;
+  const root = svg('svg', { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: 'img', 'aria-label': `Grafik ${state.trend === 'cum' ? 'kumulatif' : 'harian'} titik api per tahun` });
+  // grid
+  for (let v = 0; v <= ymax + 1e-9; v += sc.step) {
+    const yy = y(v), t = v;
+    root.append(svg('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: t === 0 ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }));
+    const tx = svg('text', { x: m.l - 8, y: yy + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' });
+    tx.textContent = v >= 1000 ? NFC.format(v) : fmt(v); root.append(tx);
+  }
+  YOY.days.forEach((md, k) => {
+    if (md.slice(3) !== '01') return;
+    const mi = +md.slice(0, 2) - 1;
+    if (W < 600 && mi % 2) return;
+    const tx = svg('text', { x: x(k), y: Hh - 8, 'font-size': 11, fill: 'var(--muted)' });
+    tx.textContent = BULAN[mi]; root.append(tx);
+  });
+  const pathOf = vals => {
+    let d = '', pen = false;
+    vals.forEach((v, k) => {
+      if (v == null) { pen = false; return; }
+      d += (pen ? 'L' : 'M') + x(k).toFixed(1) + ' ' + y(v).toFixed(1); pen = true;
+    });
+    return d;
+  };
+  const past = series.filter(s => s.year !== cy);
+  const lines = {};
+  // abu-abu dulu, tahun pilihan di atasnya
+  const drawOrder = past.slice().sort((a, b) => (yearColor(a.year) === 'var(--past)' ? 0 : 1) - (yearColor(b.year) === 'var(--past)' ? 0 : 1));
+  for (const s of drawOrder) {
+    const p = svg('path', { d: pathOf(s.vals), fill: 'none', stroke: yearColor(s.year), 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+    root.append(p); lines[s.year] = p;
+  }
+  if (cur) {
+    if (state.trend === 'cum') {
+      // area wash di bawah garis tahun ini
+      const d = pathOf(cur.vals);
+      if (d) root.append(svg('path', { d: d + `L${x(lastK).toFixed(1)} ${y(0)}L${x(cur.vals.findIndex(v => v != null)).toFixed(1)} ${y(0)}Z`, fill: 'var(--accent)', 'fill-opacity': 0.1, stroke: 'none' }));
+    }
+    root.append(svg('path', { d: pathOf(cur.vals), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  }
+  // label akhir garis tahun lalu (dibuang bila bertabrakan)
+  const labels = past.map(s => {
+    const k = s.vals.reduce((mm, v, j) => v != null ? j : mm, -1);
+    return k < 0 ? null : { year: s.year, yy: y(s.vals[k]), xx: x(k) };
+  }).filter(Boolean).sort((a, b) => a.yy - b.yy);
+  let lastY = -99;
+  for (const l of labels) {
+    if (l.yy - lastY < 13) continue;
+    const tx = svg('text', { x: l.xx + 6, y: l.yy + 4, 'font-size': 11.5, fill: 'var(--ink-2)', 'font-variant-numeric': 'tabular-nums' });
+    tx.textContent = l.year; root.append(tx); lastY = l.yy;
+  }
+  if (cur && lastK >= 0) {
+    const cx = x(lastK), cyy = y(cur.vals[lastK]);
+    root.append(svg('circle', { cx, cy: cyy, r: 4.5, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }));
+    const tx = svg('text', { x: cx + 9, y: cyy - 8, 'font-size': 12.5, 'font-weight': 650, fill: 'var(--ink)', stroke: 'var(--surface)', 'stroke-width': 4, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
+    tx.textContent = `${cy}: ${fmt(cur.vals[lastK])}`; root.append(tx);
+  }
+  // crosshair & tooltip
+  const hair = svg('line', { y1: m.t, y2: m.t + ph, stroke: 'var(--axis)', 'stroke-width': 1, visibility: 'hidden' });
+  const dots = svg('g', { visibility: 'hidden' });
+  root.append(hair, dots);
+  const hit = svg('rect', { x: m.l, y: m.t, width: pw, height: ph, fill: 'transparent', tabindex: 0, 'aria-label': 'Arahkan untuk melihat nilai per tanggal' });
+  root.append(hit);
+  let focusK = lastK >= 0 ? lastK : 0;
+  const showAt = (k, cx, cyp) => {
+    k = Math.max(0, Math.min(365, k));
+    hair.setAttribute('x1', x(k)); hair.setAttribute('x2', x(k)); hair.setAttribute('visibility', 'visible');
+    dots.replaceChildren(); dots.setAttribute('visibility', 'visible');
+    const rows = [];
+    const order = [cur, ...past.slice().reverse()].filter(Boolean);
+    for (const s of order) {
+      const v = s.vals[k];
+      if (v == null) continue;
+      const isCur = s.year === cy;
+      const col = isCur ? 'var(--accent)' : yearColor(s.year);
+      dots.append(svg('circle', { cx: x(k), cy: y(v), r: 4, fill: col, stroke: 'var(--surface)', 'stroke-width': 2 }));
+      rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${col}` }), s.year), el('b', { text: state.trend === 'cum' ? fmt(v) : fmt1(v) })));
+    }
+    showTip([el('div', { class: 'th', text: slotLabel(k) + (state.trend === 'cum' ? ' · sejak 1 Jan' : ' · rata-rata 7 hari') }), ...rows], cx, cyp);
+  };
+  hit.addEventListener('pointermove', e => {
+    const r = root.getBoundingClientRect();
+    const px = (e.clientX - r.left) * (W / r.width);
+    focusK = Math.round((px - m.l) / pw * 365);
+    showAt(focusK, e.clientX, e.clientY);
+  });
+  const leave = () => { hair.setAttribute('visibility', 'hidden'); dots.setAttribute('visibility', 'hidden'); hideTip(); };
+  hit.addEventListener('pointerleave', leave);
+  hit.addEventListener('blur', leave);
+  hit.addEventListener('focus', () => { const r = root.getBoundingClientRect(); showAt(focusK, r.left + x(focusK) * r.width / W, r.top + 20); });
+  hit.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    focusK = Math.max(0, Math.min(365, focusK + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 7 : 1)));
+    const r = root.getBoundingClientRect(); showAt(focusK, r.left + x(focusK) * r.width / W, r.top + 20);
+  });
+  box.append(root);
+
+  // tabel: total sejak 1 Jan s.d. tanggal yang sama + setahun penuh
+  const cutK = lastK >= 0 ? lastK : 365;
+  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Tahun' }), el('th', { class: 'r', text: `1 Jan – ${slotLabel(cutK)}` }), el('th', { class: 'r', text: 'Setahun penuh' }))));
+  const tb = el('tbody');
+  for (const s of series.slice().reverse()) {
+    const sum = (to) => s.raw.slice(0, to + 1).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+    const full = s.year === cy ? '—' : fmt(sum(365));
+    tb.append(el('tr', null, el('td', { text: s.year }), el('td', { class: 'r', text: fmt(sum(cutK)) }), el('td', { class: 'r', text: full })));
+  }
+  ytdT.append(tb);
+  const firstK = cur ? cur.raw.findIndex(v => v != null) : -1;
+  $('#trendNote').textContent = (firstK > 0 ? `Data ${cy} baru tersedia sejak ${slotLabel(firstK)}. ` : '') +
+    `Angka di grafik ini memakai satu satelit sehingga lebih kecil daripada total multi-satelit di bagian atas halaman. Tidak terpengaruh pilihan periode.`;
+}
+
+
+/* ---------------- titik api per bulan ---------------- */
+const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/* Jumlah titik api harian dijumlahkan per bulan. full = semua hari bulan itu ada datanya. */
+function monthlyOf(arr, year) {
+  if (!arr) return null;
+  const vals = new Array(12).fill(0), present = new Array(12).fill(0);
+  YOY.days.forEach((md, k) => {
+    const v = arr[k];
+    if (v == null) return;
+    const m = +md.slice(0, 2) - 1;
+    vals[m] += v; present[m]++;
+  });
+  return { vals: vals.map((v, m) => (present[m] ? v : null)), full: present.map((p, m) => p >= daysInMonth(year, m)), present };
+}
+function yearsLabel(ys) {
+  const n = ys.map(Number).sort((a, b) => a - b), parts = [];
+  for (let i = 0; i < n.length; i++) {
+    let j = i;
+    while (j + 1 < n.length && n[j + 1] === n[j] + 1) j++;
+    parts.push(j > i ? `${n[i]}–${n[j]}` : `${n[i]}`);
+    i = j;
+  }
+  return parts.join(', ');
+}
+function barPath(x, y, w, h) {
+  const r = Math.min(4, h, w / 2);
+  return `M${x},${y + h}L${x},${y + r}Q${x},${y} ${x + r},${y}L${x + w - r},${y}Q${x + w},${y} ${x + w},${y + r}L${x + w},${y + h}Z`;
+}
+function renderMonthly(box, legend, ytdT) {
+  const cy = String(YOY.current_year);
+  const key = state.conf;
+  const past = Object.keys(YOY.series || {}).filter(y => y !== cy).sort();
+  const refCur = YOY.series && YOY.series[cy] ? monthlyOf(areaSeries(YOY.series[cy][key] || {}), +cy) : null;
+  const multiCur = YOY.multi ? monthlyOf(areaSeries(YOY.multi[key] || {}), +cy) : null;
+  const canRef = !!(refCur && past.length);
+  if (!state.trendBasis || (state.trendBasis === 'ref' && !canRef) || (state.trendBasis === 'multi' && !multiCur)) state.trendBasis = canRef ? 'ref' : 'multi';
+  const basis = state.trendBasis;
+  const cur = basis === 'ref' ? refCur : multiCur;
+  const pastM = {};
+  for (const y of past) pastM[y] = monthlyOf(areaSeries(YOY.series[y][key] || {}), +y);
+  // Pembanding: jumlah bulanan tiap tahun pilihan (bukan rata-rata)
+  const setYears = (CONFIG.monthlyCompareYears || []).map(String).filter(y => pastM[y]).slice(0, 3);
+  let cmps = [];
+  if (basis === 'ref' && past.length) {
+    if (state.trendCmp !== 'set' && pastM[state.trendCmp]) {
+      cmps = [state.trendCmp];
+    } else if (setYears.length) {
+      state.trendCmp = 'set'; cmps = setYears;
+    } else {
+      state.trendCmp = past[past.length - 1]; cmps = [state.trendCmp];
+    }
+  }
+  const cmpS = cmps.map(yy => ({ year: yy, vals: pastM[yy].vals, color: yearColor(yy) }));
+
+  // kontrol: basis & pembanding
+  const ctl = $('#trendControls');
+  const basisOpts = [];
+  if (canRef) basisOpts.push(['ref', 'Sebanding antartahun (1 satelit)']);
+  if (multiCur) basisOpts.push(['multi', `Lengkap ${cy} (3 satelit)`]);
+  if (basisOpts.length > 1) ctl.append(segButtons(basisOpts, basis, v => { state.trendBasis = v; renderTrend(); }));
+  if (basis === 'ref' && past.length) {
+    const sel = el('select', { class: 'select', 'aria-label': 'Bandingkan dengan' });
+    if (setYears.length) sel.append(el('option', { value: 'set', text: joinYears(setYears) }));
+    for (const y of past.slice().reverse()) sel.append(el('option', { value: y, text: y }));
+    sel.value = state.trendCmp;
+    sel.addEventListener('change', () => { state.trendCmp = sel.value; renderTrend(); });
+    ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, el('span', { text: 'Bandingkan dengan' }), sel));
+  }
+
+  $('#trendSub').textContent = `Jumlah titik api per bulan · ${areaName(state.area)} · ${basis === 'ref' ? `satu satelit (${YOY.ref_label}) agar sebanding antartahun` : `tiga satelit VIIRS, ${cy}`}`;
+  legend.append(el('span', { class: 'lk' }, el('i', { class: 'bx', style: 'background:var(--accent)' }), cy));
+  for (const c of cmpS) legend.append(el('span', { class: 'lk' }, el('i', { class: 'bx', style: `background:${c.color}` }), c.year));
+
+  const now = new Date(Date.now() + 7 * 3600e3);
+  const curMonth = now.getUTCFullYear() === +cy ? now.getUTCMonth() : 11;
+  const W = Math.max(300, box.clientWidth);
+  const Hh = W < 600 ? 250 : 300;
+  const m = { t: 22, r: 12, b: 26, l: 44 };
+  const pw = W - m.l - m.r, ph = Hh - m.t - m.b;
+  let vmax = 0;
+  for (let k = 0; k < 12; k++) vmax = Math.max(vmax, (cur && cur.vals[k]) || 0, ...cmpS.map(c => c.vals[k] || 0));
+  const sc = niceScale(vmax * 1.02);
+  const y = v => m.t + (1 - v / sc.max) * ph;
+  const nb = 1 + cmpS.length, gap = nb > 1 ? 2 : 0;
+  const gw = pw / 12, bw = Math.max(3, Math.min(nb > 2 ? 16 : 22, (gw * (nb > 1 ? 0.86 : 0.55) - gap * (nb - 1)) / nb));
+  const root = svg('svg', { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: 'img', 'aria-label': 'Grafik jumlah titik api per bulan' });
+  for (let v = 0; v <= sc.max + 1e-9; v += sc.step) {
+    const yy = y(v);
+    root.append(svg('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: v === 0 ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }));
+    const tx = svg('text', { x: m.l - 8, y: yy + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' });
+    tx.textContent = v >= 1000 ? NFC.format(v) : fmt(v); root.append(tx);
+  }
+  let maxK = -1;
+  if (cur) cur.vals.forEach((v, k) => { if (v != null && (maxK < 0 || v > cur.vals[maxK])) maxK = k; });
+  for (let k = 0; k < 12; k++) {
+    const cx = m.l + gw * k + gw / 2;
+    const tx = svg('text', { x: cx, y: Hh - 8, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--muted)' });
+    tx.textContent = BULAN[k]; root.append(tx);
+    const v = cur ? cur.vals[k] : null;
+    const partial = v != null && cur && !cur.full[k];
+    const x0 = cx - (nb * bw + gap * (nb - 1)) / 2;
+    const xCur = x0;
+    let curLabel = null;
+    if (v != null && v > 0) {
+      const top = y(v);
+      root.append(svg('path', { d: barPath(xCur, top, bw, y(0) - top), fill: partial ? 'var(--accent-soft)' : 'var(--accent)', stroke: partial ? 'var(--accent)' : 'none', 'stroke-width': partial ? 1.5 : 0 }));
+      if ((k === maxK || (partial && k === curMonth)) && (nb === 1 || bw >= 9)) {
+        // ditambahkan setelah batang pembanding, dengan halo, supaya tidak tertutup
+        const lt = svg('text', { x: xCur + bw / 2, y: top - 5, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--ink-2)', 'font-variant-numeric': 'tabular-nums',
+          stroke: 'var(--surface)', 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
+        lt.textContent = (v >= 10000 ? NFC.format(v) : fmt(v)) + (partial ? '*' : ''); curLabel = lt;
+      }
+    }
+    cmpS.forEach((cs, i) => {
+      const c = cs.vals[k];
+      if (c == null || c <= 0) return;
+      const top = y(c);
+      root.append(svg('path', { d: barPath(x0 + (i + 1) * (bw + gap), top, bw, y(0) - top), fill: cs.color }));
+    });
+    if (curLabel) root.append(curLabel);
+    // area hover & klik per bulan
+    const hit = svg('rect', { x: m.l + gw * k, y: m.t, width: gw, height: ph, fill: 'transparent', tabindex: 0, 'aria-label': `${BULAN_PANJANG[k]}` });
+    const tip = () => {
+      const rows = [el('div', { class: 'th', text: `${BULAN_PANJANG[k]} ${cy}` + (partial ? ' · belum penuh' : '') })];
+      rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:var(--accent)' }), basis === 'ref' ? `${cy} (1 satelit)` : `${cy} (3 satelit)`), el('b', { text: v == null ? '–' : fmt(v) })));
+      if (basis === 'ref' && multiCur) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), `${cy} (3 satelit)`), el('b', { text: multiCur.vals[k] == null ? '–' : fmt(multiCur.vals[k]) })));
+      for (const cs of cmpS) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${cs.color}` }), cs.year), el('b', { text: cs.vals[k] == null ? '–' : fmt(cs.vals[k]) })));
+      if (INDEX && v != null) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: 'Klik untuk membuka riwayat bulan ini' }));
+      return rows;
+    };
+    bindTip(hit, tip);
+    if (INDEX && v != null) {
+      hit.style.cursor = 'pointer';
+      hit.addEventListener('click', () => {
+        const last = `${cy}-${String(k + 1).padStart(2, '0')}-${String(daysInMonth(+cy, k)).padStart(2, '0')}`;
+        state.histEnd = clampDate(last); state.histRange = true;
+        const first = state.histEnd.slice(0, 8) + '01';
+        state.histDays = Math.min(MAX_RANGE, daysBetween(first < yearBounds(state.histEnd.slice(0, 4)).first ? yearBounds(state.histEnd.slice(0, 4)).first : first, state.histEnd) + 1);
+        if (state.mode === 'hist') { renderHistControls(); refreshHist(); } else enterHist();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+    root.append(hit);
+  }
+  box.append(root);
+
+  // tabel
+  // Tabel: selalu memuat tahun pembanding pilihan, walau sedang melihat 3 satelit
+  const tblYears = cmps.length ? cmps : setYears;
+  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Bulan' }), el('th', { class: 'r', text: `${cy} (1 satelit)` }), el('th', { class: 'r', text: `${cy} (3 satelit)` }),
+    ...tblYears.map(yy => el('th', { class: 'r', text: `${yy} (1 satelit)` })))));
+  const tb = el('tbody');
+  for (let k = 0; k < 12; k++) {
+    const a = refCur ? refCur.vals[k] : null, b = multiCur ? multiCur.vals[k] : null;
+    const cs = tblYears.map(yy => pastM[yy].vals[k]);
+    if (a == null && b == null && cs.every(c => c == null)) continue;
+    tb.append(el('tr', null, el('td', { text: BULAN_PANJANG[k] + ((multiCur && b != null && !multiCur.full[k]) || (refCur && a != null && !refCur.full[k]) ? '*' : '') }),
+      el('td', { class: 'r', text: a == null ? '–' : fmt(a) }), el('td', { class: 'r', text: b == null ? '–' : fmt(b) }),
+      ...cs.map(c => el('td', { class: 'r', text: c == null ? '–' : fmt(c) }))));
+  }
+  ytdT.append(tb);
+  $('#trendNote').textContent = 'Jumlah per bulan = jumlah titik api harian selama sebulan, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ' +
+    'Tanda * dan batang pudar = bulan belum penuh. ' +
+    (basis === 'ref' ? `Perbandingan antartahun memakai satu satelit (${YOY.ref_label}); angka lengkap tiga satelit ada di tabel.` : 'Tiga satelit hanya tersedia untuk tahun berjalan, jadi tidak dibandingkan dengan tahun lain.');
+}
+
+/* ---------------- rentang tanggal yang sama di tahun-tahun lain ---------------- */
+function rangeLabel(from, to, long) {
+  const [, m1, d1] = from.split('-').map(Number), [, m2, d2] = to.split('-').map(Number);
+  const B = long ? BULAN_PANJANG : BULAN;
+  if (from === to) return `${d1} ${B[m1 - 1]}`;
+  if (m1 === m2) return `${d1}–${d2} ${B[m1 - 1]}`;
+  return `${d1} ${BULAN[m1 - 1]} – ${d2} ${BULAN[m2 - 1]}`;
+}
+function renderSameDate(box, legend, ytdT) {
+  const cy = String(YOY.current_year);
+  const key = state.conf;
+  const lastIso = YOY.last_date;
+  const ctl = $('#trendControls');
+  if (!lastIso || !YOY.series[cy]) {
+    box.append(el('div', { class: 'empty', text: `Data ${cy} untuk perbandingan antartahun belum tersedia.` }));
+    $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
+    return;
+  }
+  // Rentang dalam tahun berjalan; hari ini belum lengkap, jadi maksimum kemarin.
+  const jan1 = `${cy}-01-01`;
+  const clampCy = iso => (iso < jan1 ? jan1 : iso > lastIso ? lastIso : iso);
+  const histOn = state.mode === 'hist' && !!state.histEnd;
+  let preset = state.cmpPreset || (histOn ? 'riwayat' : 'bulan');
+  if (preset === 'riwayat' && !histOn) preset = 'bulan';
+  let from, to;
+  if (preset === 'custom' && state.cmpFrom && state.cmpTo) {
+    from = state.cmpFrom; to = state.cmpTo;
+  } else {
+    if (preset === 'custom') preset = histOn ? 'riwayat' : 'bulan';
+    // titik akhir: tanggal Riwayat (dipindah ke tahun berjalan) atau tanggal lengkap terakhir
+    to = clampCy(histOn ? `${cy}${state.histEnd.slice(4)}` : lastIso);
+    if (preset === 'riwayat') {
+      const hf = isoDateAddDays(state.histEnd, 1 - state.histDays);
+      from = hf.slice(0, 4) === state.histEnd.slice(0, 4) ? `${cy}${hf.slice(4)}` : jan1;
+    } else if (preset === '1') from = to;
+    else if (preset === '7') from = isoDateAddDays(to, -6);
+    else from = to.slice(0, 8) + '01';  // sejak awal bulan
+  }
+  from = clampCy(from); to = clampCy(to);
+  if (from > to) [from, to] = [to, from];
+
+  const pos = {}; YOY.days.forEach((d, k) => { pos[d] = k; });
+  const mmdd = d => `${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  // Jumlah titik api pada rentang tanggal yang sama di tahun `year`
+  const sumRange = (arr, year) => {
+    let sum = 0, n = 0, tot = 0;
+    if (!arr) return { v: null, n, tot };
+    const a = Date.UTC(+year, +from.slice(5, 7) - 1, +from.slice(8));
+    const b = Date.UTC(+year, +to.slice(5, 7) - 1, +to.slice(8));
+    for (let t = a; t <= b; t += 864e5) {
+      tot++;
+      const v = arr[pos[mmdd(new Date(t))]];
+      if (v != null) { sum += v; n++; }
+    }
+    return { v: n ? sum : null, n, tot };
+  };
+  const years = [cy, ...(CONFIG.monthlyCompareYears || []).map(String).filter(y => y !== cy && YOY.series[y])];
+  const multiArr = YOY.multi ? areaSeries(YOY.multi[key] || {}) : null;
+  const rows = years.map(y => ({
+    year: y, color: y === cy ? 'var(--accent)' : yearColor(y),
+    r: sumRange(areaSeries(YOY.series[y][key] || {}), y),
+    m: y === cy ? sumRange(multiArr, y) : null
+  }));
+
+  // kontrol
+  const mkDate = (val, label, onPick) => {
+    const inp = el('input', { type: 'date', class: 'select', min: jan1, max: lastIso, value: val, 'aria-label': label });
+    inp.addEventListener('change', () => { if (inp.value) onPick(inp.value); });
+    return inp;
+  };
+  const pick = (f, t2) => { state.cmpPreset = 'custom'; state.cmpFrom = clampCy(f); state.cmpTo = clampCy(t2); if (state.cmpFrom > state.cmpTo) [state.cmpFrom, state.cmpTo] = [state.cmpTo, state.cmpFrom]; renderTrend(); };
+  ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap' },
+    el('span', { text: 'Dari' }), mkDate(from, 'Dari tanggal', v => pick(v, to < v ? v : to)),
+    el('span', { text: 's.d.' }), mkDate(to, 'Sampai tanggal', v => pick(from > v ? v : from, v))));
+  const presets = [['1', '1 hari'], ['7', '7 hari'], ['bulan', 'Sejak awal bulan']];
+  if (histOn) presets.push(['riwayat', 'Ikuti Riwayat']);
+  ctl.append(segButtons(presets, preset, v => { state.cmpPreset = v; renderTrend(); }));
+
+  const label = rangeLabel(from, to, true);
+  const nDays = daysBetween(from, to) + 1;
+  $('#trendSub').textContent = `Titik api ${from === to ? 'pada' : ''} ${label} di tiap tahun${nDays > 1 ? ` (${nDays} hari)` : ''} · ${areaName(state.area)} · satu satelit (${YOY.ref_label}) agar sebanding antartahun`.replace('  ', ' ');
+
+  // batang horizontal per tahun
+  const max = Math.max(1, ...rows.map(r => r.r.v || 0));
+  const list = el('div', { class: 'hbars', style: 'margin-top:6px;max-width:760px' });
+  for (const r of rows) {
+    const v = r.r.v, partial = v != null && r.r.n < r.r.tot;
+    const full = `${label} ${r.year}`;
+    const row = el('div', { class: 'hbar', style: 'grid-template-columns:56px 1fr', role: 'img', 'aria-label': `${full}: ${v == null ? 'tidak ada data' : fmt(v) + ' titik api'}` },
+      el('div', { class: 'name', title: full }, el('span', { text: r.year, style: r.year === cy ? 'font-weight:650' : '' })),
+      el('div', { class: 'track' },
+        v == null ? el('span', { class: 'val', text: 'tidak ada data' })
+          : el('div', { class: 'bar', style: `width:calc(${v / max} * (100% - 64px));background:${r.color}` }),
+        v == null ? '' : el('span', { class: 'val', text: fmt(v) + (partial ? '*' : '') })));
+    bindTip(row, () => {
+      const t = [el('div', { class: 'th', text: full }),
+        el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${r.color}` }), '1 satelit'), el('b', { text: v == null ? '–' : fmt(v) }))];
+      if (nDays > 1 && v != null) t.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), 'Rata-rata per hari'), el('b', { text: fmt1(v / r.r.n) })));
+      if (r.m && r.m.v != null) t.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), '3 satelit'), el('b', { text: fmt(r.m.v) })));
+      if (partial) t.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: `Data hanya ${r.r.n} dari ${r.r.tot} hari` }));
+      return t;
+    });
+    list.append(row);
+  }
+  box.append(list);
+
+  // kalimat ringkas: tahun berjalan dibanding tiap tahun
+  const vc = rows[0].r.v;
+  const parts = rows.slice(1).filter(r => r.r.v && vc != null).map(r => {
+    const ratio = vc / r.r.v;
+    return ratio >= 1 ? `${NF1.format(ratio)} kali ${r.year}` : `${PCT.format(ratio)} dari ${r.year}`;
+  });
+  if (parts.length) box.append(el('p', { class: 'sub', style: 'margin:10px 0 0', text: `Dibanding ${from === to ? 'tanggal' : 'rentang'} yang sama, titik api ${cy} = ${parts.join(' · ')}.` }));
+
+  // tabel
+  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Tahun' }), el('th', { class: 'r', text: `${label} (1 satelit)` }),
+    el('th', { class: 'r', text: 'Rata-rata per hari' }), el('th', { class: 'r', text: 'Hari berdata' }))));
+  const tb = el('tbody');
+  const addRow = (name, x) => tb.append(el('tr', null, el('td', { text: name }), el('td', { class: 'r', text: x.v == null ? '–' : fmt(x.v) }),
+    el('td', { class: 'r', text: x.v == null ? '–' : fmt1(x.v / x.n) }), el('td', { class: 'r', text: `${x.n}/${x.tot}` })));
+  for (const r of rows) {
+    addRow(r.year, r.r);
+    if (r.m && r.m.v != null) addRow(`${r.year} (3 satelit)`, r.m);
+  }
+  ytdT.append(tb);
+  $('#trendNote').textContent = `Hari ini belum lengkap, jadi tanggal terakhir yang bisa dipilih adalah ${fmtDateLong(lastIso)}. ` +
+    'Angka satu hari sangat dipengaruhi awan, asap tebal, dan posisi lintasan satelit; rentang beberapa hari lebih stabil untuk dibandingkan. ' +
+    `Jumlah dalam rentang = jumlah titik api harian, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ` +
+    `Perbandingan memakai satu satelit (${YOY.ref_label}); angka tiga satelit ${cy} ada di tabel.` + (rows.some(r => r.r.v != null && r.r.n < r.r.tot) ? ' Tanda * = data tidak lengkap untuk seluruh rentang.' : '');
+}
+
+/* ---------------- kualitas udara ---------------- */
+function renderAir() {
+  const sec = $('#secAir');
+  if (!AIR) { sec.hidden = true; return; }
+  const t = $('#airTbl'); t.replaceChildren();
+  t.append(el('thead', null, el('tr', null, el('th', { text: 'Kota' }), el('th', { class: 'r', text: 'PM2.5 sekarang' }), el('th', { class: 'r', text: 'Rata-rata 24 jam' }), el('th', { text: 'Kategori' }), el('th', { class: 'r', text: 'Puncak 24 jam ke depan' }))));
+  const tb = el('tbody');
+  const cs = AIR.cities.slice().sort((a, b) => (b.pm25_24h ?? -1) - (a.pm25_24h ?? -1));
+  for (const c of cs) {
+    tb.append(el('tr', null,
+      el('td', { text: c.name }),
+      el('td', { class: 'r', text: fmt1(c.pm25_now) }),
+      el('td', { class: 'r', text: fmt1(c.pm25_24h) }),
+      el('td', null, c.category ? el('span', { class: 'chip' }, el('i', { style: `background:var(${ISPU_VAR[c.category]})` }), c.category) : '–'),
+      el('td', { class: 'r', text: fmt1(c.pm25_max_next24) })));
+  }
+  t.append(tb);
+}
+
+/* ---------------- metodologi ---------------- */
+function renderMethod() {
+  const st = S.sources.map(s => `${s.label}${s.ok ? '' : ' (gagal diperbarui)'}`).join(', ');
+  const box = $('#method');
+  const sec = (title, ...paras) => [el('h3', { text: title }), ...paras];
+  const p = t => el('p', { text: t });
+  box.append(
+    ...sec('Apa yang dihitung',
+      p('Titik api (hotspot) adalah piksel yang oleh satelit terdeteksi jauh lebih panas daripada sekitarnya. Titik api adalah indikasi kebakaran, bukan kepastian; luas area terbakar tidak bisa dihitung dari jumlah titik.'),
+      p(`Data berasal dari sensor VIIRS (piksel 375 m) di satelit ${st}, melalui layanan NASA FIRMS. Hanya deteksi dengan tingkat keyakinan nominal dan tinggi yang dipakai; deteksi berkeyakinan rendah dikecualikan dari analisis.`)),
+    ...sec('Cara menghitung',
+      el('ul', null,
+        el('li', { text: `Deteksi dari beberapa satelit di sel grid yang sama (~400 m, ${String(S.grid_deg).replace('.', ',')}°) dihitung satu titik, supaya satu kebakaran tidak terhitung dua-tiga kali.` }),
+        el('li', { text: 'Untuk periode 48 jam dan 7 hari, sel yang terdeteksi berulang di hari berbeda tetap dihitung satu titik. Grafik 7 hari menghitung per tanggal.' }),
+        el('li', { text: 'Semua waktu dan tanggal memakai WIB.' }),
+        el('li', { text: 'Pilihan "Tinggi saja" menampilkan titik yang setidaknya sekali terdeteksi dengan keyakinan tinggi.' }),
+        el('li', { text: `Perbandingan antartahun memakai satu satelit (${S.ref_label}) agar sebanding; satelit NOAA-20 dan NOAA-21 belum ada pada tahun-tahun awal.` }))),
+    ...sec('Riwayat harian',
+      p('Mode Riwayat menampilkan arsip harian sejak 1 Januari 2026 dengan cara hitung yang sama. Data hari-hari lama memakai produk standar NASA (SP) bila sudah tersedia, sehingga angkanya bisa sedikit berbeda dari tampilan near real-time pada hari itu. Untuk durasi 30 hari, peta menampilkan kepadatan lokasi titik api per sel ±11 km.')),
+    ...sec('Keterbatasan',
+      el('ul', null,
+        el('li', { text: 'Awan tebal, asap pekat, dan kanopi hutan dapat menutupi api sehingga tidak terdeteksi.' }),
+        el('li', { text: 'Satelit VIIRS melintas sekitar pukul 13.00 dan 01.00 waktu setempat; api yang menyala dan padam di antara lintasan bisa terlewat.' }),
+        el('li', { text: 'Angka bisa berbeda dari SiPongi (Kementerian Kehutanan) atau ASMC karena perbedaan satelit, ambang keyakinan, dan cara deduplikasi.' }),
+        el('li', { text: 'Data near real-time belum melalui pemrosesan standar NASA dan dapat sedikit berubah.' }),
+        el('li', { text: 'Sumber panas yang bukan kebakaran, seperti smelter, kilang, dan gunung api aktif, ikut terdeteksi sebagai titik api.' }),
+        el('li', { text: 'Titik di negara tetangga dan di laut lebih dari 5 km dari pantai (mis. anjungan migas) dibuang memakai garis pantai Natural Earth. Provinsi ditentukan oleh batas 38 provinsi yang tampil di peta; titik di pulau kecil yang tidak tercakup batas itu dipasangkan ke provinsi terdekat.' }))),
+    ...sec('Asap dan kualitas udara',
+      p(`Arah angin di ketinggian ${WIND ? WIND.level : '925 hPa'} (setara angin 2.500 kaki yang dipakai ASMC untuk peta kabut asap regional) berasal dari model cuaca global melalui Open-Meteo. PM2.5 kota adalah estimasi model CAMS (Copernicus), bukan pengukuran alat; kategorinya mengikuti ambang ISPU PM2.5 atas rata-rata 24 jam. Lapisan asap memakai indeks aerosol UV Sentinel-5P (TROPOMI, 340/380 nm) dari Copernicus Data Space Ecosystem; hanya nilai 0,5 ke atas (aerosol penyerap seperti asap dan debu) yang ditampilkan, dengan warna bergradasi dari kuning (indeks rendah, asap tipis) ke ungu (indeks 4 ke atas, pekat), dan area tanpa data (tertutup awan tebal atau di luar lintasan) dibiarkan kosong. Citra satelit harian disediakan NASA GIBS.`)),
+    ...sec('Sumber & atribusi',
+      el('ul', null,
+        el('li', null, 'Titik api: ', el('a', { href: 'https://firms.modaps.eosdis.nasa.gov/', text: 'NASA FIRMS' }), ' (LANCE/EOSDIS). Data disediakan apa adanya; lihat ', el('a', { href: 'https://www.earthdata.nasa.gov/data/tools/firms', text: 'ketentuan & disclaimer LANCE' }), '.'),
+        el('li', null, 'Citra satelit: ', el('a', { href: 'https://earthdata.nasa.gov/gibs', text: 'NASA GIBS' }), '.'),
+        el('li', null, 'Aerosol: Copernicus Sentinel-5P melalui ', el('a', { href: 'https://dataspace.copernicus.eu/', text: 'Copernicus Data Space Ecosystem' }), '; mengandung data Copernicus Sentinel yang dimodifikasi.'),
+        el('li', null, 'Angin & PM2.5: ', el('a', { href: 'https://open-meteo.com/', text: 'Open-Meteo' }), ' (model cuaca global; CAMS/Copernicus).'),
+        el('li', null, 'Batas 38 provinsi: ', el('a', { href: 'https://github.com/denyherianto/indonesia-geojson-topojson-maps-with-38-provinces', text: 'Indonesia GeoJSON 38 Provinces' }), ' (CC BY 4.0); garis pantai dan batas negara: ', el('a', { href: 'https://www.naturalearthdata.com/', text: 'Natural Earth' }), (S.kabupaten.length ? '; batas kabupaten/kota: geoBoundaries.' : '.')),
+        el('li', null, 'Peta dasar: ', el('a', { href: 'https://openfreemap.org/', text: 'OpenFreeMap' }), ', © OpenMapTiles, data © OpenStreetMap.'))),
+    ...sec('Unduh data',
+      el('ul', null,
+        el('li', null, 'Klik ', el('b', { text: 'Unduh CSV' }), ' di atas untuk langsung mengunduh data sesuai filter yang dipilih'),
+        el('li', null, 'Untuk hitungan harian per provinsi: ', el('a', { href: CONFIG.archiveUrl + `daily_${S.generated_wib.slice(0, 4)}.csv`, text: `daily_${S.generated_wib.slice(0, 4)}.csv` }))))
+  );
+  const f = $('#footer');
+  f.append(el('div', { text: (CONFIG.publisher ? CONFIG.publisher + ' · ' : '') + `Diperbarui ${fmtWib(new Date(S.generated_utc))}. Dikembangkan oleh Puja Pratama Ridwan dengan asistensi Opus 5.5` }));
+}
+
+/* ---------------- unduh CSV ---------------- */
+function downloadCsv() {
+  const head = ['tanggal_wib_terakhir', 'deteksi_pertama_wib', 'deteksi_terakhir_wib', 'lintang', 'bujur', 'keyakinan', 'frp_maks_mw', 'satelit', 'jumlah_deteksi', 'provinsi', 'kabupaten_kota', ...S.context_layers.map(c => c.id)];
+  const iso = d => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d);
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const lines = [head.join(',')];
+  for (const p of current.pts) {
+    const i = p.i, tl = minToDate(p.tl);
+    const ctx = S.context_layers.map(c => {
+      if (!(H.ctx[i] & c.bit)) return '';
+      if (c.ranked && H.names[c.id] && H.names[c.id].idx[i] >= 0) return H.names[c.id].names[H.names[c.id].idx[i]];
+      return 'ya';
+    });
+    lines.push([iso(tl).slice(0, 10), iso(minToDate(p.tf)), iso(tl), p.lat, p.lon, p.high ? 'tinggi' : 'nominal', isNaN(p.frp) ? '' : p.frp,
+      SAT_NAMES.filter(([b]) => p.sats & b).map(([, n]) => n).join(' '), p.nd,
+      S.provinces[H.prov[i]] ? S.provinces[H.prov[i]].name : '', H.kab[i] >= 0 && S.kabupaten[H.kab[i]] ? S.kabupaten[H.kab[i]].name : '', ...ctx].map(q).join(','));
+  }
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `titik-api_${state.mode === 'hist' ? state.histEnd + '_' + state.histDays + 'hari' : state.win}_${areaName(state.area).replace(/\W+/g, '-').toLowerCase()}_${S.generated_wib.slice(0, 10)}.csv` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* =====================================================================
+   RIWAYAT: arsip harian sejak 1 Januari 2026
+   ===================================================================== */
+const DAY_CACHE = new Map();
+let histReq = 0, playing = false;
+// Simpan paling banyak sekian hari di memori (yang paling lama tidak dipakai dibuang),
+// supaya membuka rentang panjang berkali-kali tidak memberatkan ponsel.
+const DAY_CACHE_MAX = 2 * MAX_RANGE + 20;
+function loadDay(iso) {
+  if (!INDEX_MAP.has(iso)) return Promise.resolve(null);
+  let p = DAY_CACHE.get(iso);
+  if (p) { DAY_CACHE.delete(iso); DAY_CACHE.set(iso, p); return p; }
+  p = fetch(`${CONFIG.archiveUrl}harian/${iso.slice(0, 4)}/${iso}.json`)
+    .then(r => (r.ok ? r.json() : null)).catch(() => null);
+  DAY_CACHE.set(iso, p);
+  while (DAY_CACHE.size > DAY_CACHE_MAX) DAY_CACHE.delete(DAY_CACHE.keys().next().value);
+  return p;
+}
+/* Gabungkan file-file harian menjadi struktur yang sama dengan data terkini,
+   supaya peta, KPI, peringkat, dan unduhan memakai kode yang sama. */
+function buildHistH(dates, datas, W) {
+  let n = 0;
+  datas.forEach(d => { if (d) n += d.rows.length; });
+  const span = dates.length;
+  const o = {
+    n: 0, lon: new Float64Array(n), lat: new Float64Array(n), day: new Int16Array(n),
+    tf: new Int32Array(n), tl: new Int32Array(n), high: new Uint8Array(n), frp: new Float64Array(n),
+    sats: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
+    ctx: new Int32Array(n), cell: new Float64Array(n),
+    t0: new Date(dates[0] + 'T00:00:00+07:00'), t0Date: dates[0], nowMin: span * 1440, names: {},
+    prevLoaded: span > W && datas.slice(0, span - W).every(Boolean),
+    missing: dates.slice(span - W).filter((d, k) => !datas[span - W + k]),
+    minSats: Math.min(...datas.slice(span - W).filter(Boolean).map(d => d.sats.length), 3),
+    maxSats: Math.max(...datas.slice(span - W).filter(Boolean).map(d => d.sats.length), 0)
+  };
+  const provIdx = new Map(S.provinces.map(p => [p.name, p.i]));
+  const kabIdx = new Map(S.kabupaten.map(k => [k.name, k.i]));
+  const bitOf = new Map(S.context_layers.map(c => [c.id, c.bit]));
+  for (const c of S.context_layers) if (c.ranked) o.names[c.id] = { names: [], groups: [], idx: new Int32Array(n).fill(-1), pos: new Map() };
+  let j = 0;
+  datas.forEach((d, k) => {
+    if (!d) return;
+    const base = k * 1440;
+    const pmap = d.prov_names.map(nm => (provIdx.has(nm) ? provIdx.get(nm) : -1));
+    const kmap = d.kab_names.map(nm => (kabIdx.has(nm) ? kabIdx.get(nm) : -1));
+    const bits = d.ctx_layers.map(id => bitOf.get(id) || 0);
+    d.rows.forEach((r, i) => {
+      const pv = pmap[r[8]];
+      if (pv == null || pv < 0) return;
+      o.lon[j] = r[0]; o.lat[j] = r[1]; o.day[j] = k; o.tf[j] = base + r[2]; o.tl[j] = base + r[3];
+      o.high[j] = r[4]; o.frp[j] = r[5] == null ? NaN : r[5]; o.sats[j] = r[6]; o.nd[j] = r[7];
+      o.prov[j] = pv; o.kab[j] = r[9] >= 0 ? kmap[r[9]] : -1; o.cell[j] = r[11];
+      let cb = 0;
+      bits.forEach((bit, b) => { if (r[10] & (1 << b)) cb |= bit; });
+      o.ctx[j] = cb;
+      for (const id in o.names) {
+        const src = d.ctx_names && d.ctx_names[id];
+        const li = src ? src.idx[i] : -1;
+        if (li == null || li < 0) continue;
+        const tgt = o.names[id], key = src.names[li] + '\u0001' + src.groups[li];
+        let g = tgt.pos.get(key);
+        if (g === undefined) { g = tgt.names.length; tgt.pos.set(key, g); tgt.names.push(src.names[li]); tgt.groups.push(src.groups[li]); }
+        tgt.idx[j] = g;
+      }
+      j++;
+    });
+  });
+  o.n = j;
+  return o;
+}
+async function loadHist() {
+  const W = state.histDays;
+  const span = W <= 7 ? 2 * W : W;  // muat juga periode sebelumnya untuk pembanding
+  const dates = Array.from({ length: span }, (_, k) => isoDateAddDays(state.histEnd, k - span + 1));
+  const datas = await Promise.all(dates.map(loadDay));
+  return buildHistH(dates, datas, W);
+}
+async function refreshHist() {
+  const my = ++histReq;
+  document.body.classList.add('is-loading');
+  const h = await loadHist();
+  if (my !== histReq || state.mode !== 'hist') return;
+  document.body.classList.remove('is-loading');
+  H = h;
+  map.closePopup();
+  update(); setAerosol(); renderPanel(); renderLegend(); renderHistControls();
+  if (playing) loadDay(isoDateAddDays(state.histEnd, 1));  // siapkan hari berikutnya
+}
+/* Tanggal arsip sebelum (dir -1) / sesudah (dir +1) iso, atau null */
+function stepDay(iso, dir) {
+  let lo = 0, hi = INDEX_DAYS.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (INDEX_DAYS[mid] < iso) lo = mid + 1; else hi = mid; }
+  if (dir > 0) { const j = INDEX_DAYS[lo] === iso ? lo + 1 : lo; return INDEX_DAYS[j] || null; }
+  return INDEX_DAYS[lo - 1] || null;
+}
+function yearBounds(y) { return INDEX_YB[y] || { first: INDEX.first, last: INDEX.last }; }
+/* Tanggal terdekat yang punya arsip; bila tahunnya ada di arsip, tetap di tahun itu */
+function clampDate(iso) {
+  if (!INDEX_DAYS.length) return iso;
+  if (INDEX_MAP.has(iso)) return iso;
+  const yb = INDEX_YB[iso.slice(0, 4)];
+  if (yb) {
+    if (iso < yb.first) return yb.first;
+    if (iso > yb.last) return yb.last;
+  }
+  const a = stepDay(iso, -1), b = stepDay(iso, 1);
+  if (yb) {  // di dalam tahun yang sama tetapi ada hari kosong
+    const ok = x => x && x.slice(0, 4) === iso.slice(0, 4);
+    if (ok(a) && ok(b)) return daysBetween(a, iso) <= daysBetween(iso, b) ? a : b;
+    return ok(a) ? a : b;
+  }
+  if (!a) return b;
+  if (!b) return a;
+  return daysBetween(a, iso) <= daysBetween(iso, b) ? a : b;
+}
+function syncWinSeg() {
+  const v = state.mode === 'hist' ? 'hist' : state.win;
+  document.querySelectorAll('#segWin button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+function enterHist() {
+  if (!INDEX || !INDEX.last) return;
+  state.mode = 'hist';
+  state.histEnd = clampDate(state.histEnd || INDEX.last);
+  $('#histRow').hidden = false;
+  syncWinSeg(); setWind(); setAir(); renderHistControls();
+  refreshHist();
+}
+function exitHist(win) {
+  stopPlay();
+  histReq++;
+  state.mode = 'live'; state.win = win;
+  $('#histRow').hidden = true;
+  document.body.classList.remove('is-loading');
+  H = LIVE_H;
+  map.closePopup();
+  syncWinSeg(); setWind(); setAir(); setAerosol(); renderPanel(); update();
+}
+function renderHistControls() {
+  if (!INDEX) return;
+  const di = $('#histDate'); di.min = INDEX.first; di.max = INDEX.last; di.value = state.histEnd;
+  const yr = state.histEnd.slice(0, 4), yb = yearBounds(yr);
+  const ys = $('#histYear');
+  ys.hidden = INDEX_YEARS.length < 2;
+  if (ys.options.length !== INDEX_YEARS.length) {
+    ys.replaceChildren(...INDEX_YEARS.slice().reverse().map(y => el('option', { value: y, text: y })));
+  }
+  ys.value = yr;
+  const sl = $('#histSlider'); sl.min = 0; sl.max = daysBetween(yb.first, yb.last); sl.value = daysBetween(yb.first, state.histEnd);
+  $('#histPrev').disabled = state.histEnd <= INDEX.first;
+  $('#histNext').disabled = state.histEnd >= INDEX.last;
+  document.querySelectorAll('#segDur button').forEach(b => b.setAttribute('aria-pressed',
+    String(b.dataset.v === 'r' ? state.histRange : !state.histRange && +b.dataset.v === state.histDays)));
+  const hf = $('#histFrom');
+  hf.hidden = $('#histDash').hidden = !state.histRange;
+  $('#histFromGroup').hidden = ys.hidden && !state.histRange;
+  hf.min = yb.first; hf.max = state.histEnd; hf.value = isoDateAddDays(state.histEnd, 1 - state.histDays);
+  $('#histPlay').textContent = playing ? '❚❚ Jeda' : '▶ Putar';
+  const notes = [];
+  if (H && H.missing && H.missing.length) notes.push(`${H.missing.length} hari tanpa arsip`);
+  if (H && H.minSats < 3) notes.push(H.maxSats === H.minSats
+    ? `hanya ${H.minSats} satelit, jadi angkanya lebih kecil daripada hari dengan 3 satelit`
+    : `sebagian hari hanya ${H.minSats} satelit`);
+  if (state.histRange && state.histDays >= MAX_RANGE) notes.push(`rentang maks. ${MAX_RANGE} hari`);
+  if (state.histDays > 7) notes.push('peta: kepadatan per sel ±11 km');
+  $('#histNote').textContent = notes.join(' · ');
+}
+function stopPlay() { if (playing) { playing = false; renderHistControls(); } }
+async function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true;
+  const yb0 = yearBounds(state.histEnd.slice(0, 4));
+  if (state.histEnd >= yb0.last) state.histEnd = clampDate(isoDateAddDays(yb0.last, -30));
+  renderHistControls();
+  while (playing && state.mode === 'hist') {
+    await refreshHist();
+    await sleep(state.histDays > 7 ? 1000 : 750);
+    if (!playing) break;
+    const next = stepDay(state.histEnd, 1);
+    // berhenti di akhir tahun (tahun berikutnya bisa tidak berurutan)
+    if (!next || next.slice(0, 4) !== state.histEnd.slice(0, 4)) { stopPlay(); break; }
+    state.histEnd = next;
+  }
+}
+function bindHist() {
+  const go = iso => { state.histEnd = clampDate(iso); refreshHist(); };
+  // Rentang: atur awal & akhir sekaligus (dalam satu tahun, maks. MAX_RANGE hari)
+  const setRange = (from, to) => {
+    to = clampDate(to);
+    const yb = yearBounds(to.slice(0, 4));
+    if (from.slice(0, 4) !== to.slice(0, 4) || from < yb.first) from = yb.first;
+    if (from > to) from = to;
+    state.histEnd = to;
+    state.histDays = Math.min(MAX_RANGE, daysBetween(from, to) + 1);
+    renderHistControls(); refreshHist();
+  };
+  const curFrom = () => isoDateAddDays(state.histEnd, 1 - state.histDays);
+  $('#histDate').addEventListener('change', e => {
+    if (!e.target.value) return;
+    stopPlay();
+    if (!state.histRange) return go(e.target.value);
+    const to = e.target.value, from = curFrom();
+    // tanggal akhir pindah tahun: tanggal awal ikut ke tahun itu
+    setRange(to.slice(0, 4) === from.slice(0, 4) ? from : `${to.slice(0, 4)}${from.slice(4)}`, to);
+  });
+  $('#histFrom').addEventListener('change', e => {
+    if (!e.target.value) return;
+    stopPlay();
+    const from = e.target.value;
+    setRange(from, from > state.histEnd ? from : state.histEnd);
+  });
+  let t = 0;
+  $('#histYear').addEventListener('change', e => {
+    stopPlay();
+    // tanggal & bulan yang sama di tahun pilihan (rentang ikut dipindah)
+    const y = e.target.value;
+    if (state.histRange) return setRange(`${y}${curFrom().slice(4)}`, `${y}${state.histEnd.slice(4)}`);
+    go(`${y}${state.histEnd.slice(4)}`);
+  });
+  $('#histSlider').addEventListener('input', e => {
+    stopPlay();
+    state.histEnd = clampDate(isoDateAddDays(yearBounds(state.histEnd.slice(0, 4)).first, +e.target.value));
+    $('#histDate').value = state.histEnd;
+    clearTimeout(t); t = setTimeout(refreshHist, 180);
+  });
+  $('#histPrev').addEventListener('click', () => { stopPlay(); const d = stepDay(state.histEnd, -1); if (d) go(d); });
+  $('#histNext').addEventListener('click', () => { stopPlay(); const d = stepDay(state.histEnd, 1); if (d) go(d); });
+  $('#histPlay').addEventListener('click', togglePlay);
+  document.querySelectorAll('#segDur button').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.v === 'r') {
+      if (state.histRange) return;
+      state.histRange = true;
+      // awal rentang bawaan: tanggal 1 bulan itu
+      if (state.histDays === 1) return setRange(state.histEnd.slice(0, 8) + '01', state.histEnd);
+    } else {
+      state.histRange = false; state.histDays = +b.dataset.v;
+    }
+    renderHistControls(); refreshHist();
+  }));
+}
+
+/* ---------------- kontrol & tema ---------------- */
+function bindControls() {
+  const syncSeg = (id, key) => document.querySelectorAll(`#${id} button`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state[key])));
+  const onSeg = (id, key) => {
+    document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener('click', () => {
+      state[key] = b.dataset.v; syncSeg(id, key);
+      key === 'trend' ? renderTrend() : update();
+    }));
+    syncSeg(id, key);
+  };
+  document.querySelectorAll('#segWin button').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.v;
+    if (v === 'hist') { if (state.mode !== 'hist') enterHist(); return; }
+    if (state.mode === 'hist') exitHist(v); else { state.win = v; syncWinSeg(); update(); }
+  }));
+  syncWinSeg();
+  onSeg('segConf', 'conf'); onSeg('segTrend', 'trend');
+  const sel = $('#selArea');
+  const og = el('optgroup', { label: 'Wilayah besar' });
+  for (const r of S.regions) og.append(el('option', { value: 'r:' + r, text: r }));
+  sel.append(og);
+  for (const r of S.regions) {
+    const g = el('optgroup', { label: r });
+    for (const p of S.provinces.filter(p => p.region === r)) g.append(el('option', { value: 'p:' + p.i, text: p.name }));
+    sel.append(g);
+  }
+  if (state._areaName) {
+    const p = S.provinces.find(p => p.name.toLowerCase() === state._areaName.toLowerCase());
+    if (p) state.area = 'p:' + p.i;
+    else if (S.regions.includes(state._areaName)) state.area = 'r:' + state._areaName;
+  }
+  sel.value = state.area;
+  sel.addEventListener('change', () => { state.area = sel.value; state.rankAll = false; state.kabN = 10; update(); zoomToArea(); });
+  $('#rankMore').addEventListener('click', () => { state.rankAll = !state.rankAll; renderRank(dedup(current.idx)); });
+  $('#kabMore').addEventListener('click', () => { state.kabN += 15; renderKab(dedup(current.idx)); });
+  $('#dlBtn').addEventListener('click', downloadCsv);
+  $('#themeBtn').addEventListener('click', () => {
+    const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next; lsSet('tema', next); onTheme();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderTrend, 150); });
+}
+function onTheme() {
+  if (!map) return;
+  if (state.base === 'map') setBase();
+  setWind(); setAir(); setAerosol(); renderLegend();
+  if (provLayer) provLayer.setStyle(boundaryStyle);
+  hsLayer._redraw();
+  renderTrend();
+}
+function zoomToArea() {
+  if (!PROV_GJ) return;
+  const ps = areaProvSet(state.area);
+  if (!ps) { fitIndonesia(true); return; }
+  const fc = { type: 'FeatureCollection', features: PROV_GJ.features.filter(f => ps.has(f.properties.i)) };
+  const b = L.geoJSON(fc).getBounds();
+  if (b.isValid()) map.flyToBounds(b, { ...mapPadding(), duration: 0.6, maxZoom: 9 });
+}
+
+function renderMeta() {
+  const meta = $('#meta'); meta.replaceChildren();
+  const gen = new Date(S.generated_utc);
+  meta.append(el('span', null, 'Diperbarui ', el('strong', { text: fmtWib(gen) })));
+  if (S.latest_detection_wib) meta.append(el('span', null, 'Deteksi terbaru ', el('strong', { text: fmtWib(wibDate(S.latest_detection_wib)) })));
+  meta.append(el('a', { href: '#metodologi', text: 'Metodologi' }));
+  const b = $('#banners');
+  const ageH = (Date.now() - gen.getTime()) / 3.6e6;
+  if (ageH > CONFIG.staleHours) b.append(el('div', { class: 'banner', text: `Data belum diperbarui sejak ${fmtWib(gen)}. Pembaruan otomatis mungkin sedang bermasalah.` }));
+  const bad = S.sources.filter(s => !s.ok);
+  if (bad.length) b.append(el('div', { class: 'banner', text: `Pada pembaruan terakhir, data ${bad.map(s => s.label).join(', ')} gagal diambil; angka bisa lebih rendah dari seharusnya.` }));
+}
+
+/* ---------------- mulai ---------------- */
+async function main() {
+  const saved = lsGet('tema');
+  if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+  readUrl();
+  try {
+    [S, H] = await Promise.all([getJSON('summary.json'), getJSON('hotspots.json').then(prepHotspots)]);
+  } catch (e) {
+    $('#mapLoading').textContent = 'Data gagal dimuat. Coba muat ulang halaman.';
+    console.error(e);
+    return;
+  }
+  [YOY, WIND, AIR, AERO, PROV_GJ, INDEX] = await Promise.all([getJSON('yoy.json', true), getJSON('angin.json', true), getJSON('udara.json', true), getJSON('aerosol.json', true), getJSON('provinsi.geojson', true),
+    fetch(CONFIG.archiveUrl + 'harian/indeks.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null)]);
+  if (INDEX && INDEX.days && INDEX.days.length) {
+    INDEX_MAP = new Map(INDEX.days.map(d => [d.d, d]));
+    INDEX_DAYS = INDEX.days.map(d => d.d).sort();
+    for (const d of INDEX_DAYS) {
+      const y = d.slice(0, 4);
+      if (!INDEX_YB[y]) { INDEX_YB[y] = { first: d, last: d }; INDEX_YEARS.push(y); }
+      INDEX_YB[y].last = d;
+    }
+  }
+  else INDEX = null;
+  LIVE_H = H;
+  await Promise.all(S.context_layers.filter(c => c.file).map(async c => { CTX_GJ[c.id] = await getJSON(c.file, true); }));
+  const wibHour = +S.generated_wib.slice(11, 13);
+  state.imgDate = isoDateAddDays(S.generated_wib.slice(0, 10), wibHour >= 16 ? 0 : -1);
+
+  renderMeta();
+  bindControls();
+  if (INDEX) { $('#btnHist').hidden = false; bindHist(); }
+  initMap();
+  if (PROV_GJ) initBoundaries();
+  initContext();
+  // Bila tautan membuka tanggal tertentu, langsung ke mode Riwayat
+  // (angin & udara tidak sempat dipasang lalu dilepas lagi).
+  const startHist = !!(INDEX && state._histFromUrl);
+  if (startHist) { state.mode = 'hist'; state.histEnd = clampDate(state.histEnd); }
+  setWind(); setAir(); setAerosol();
+  renderPanel();
+  if (isMobile()) $('#panel').open = false;
+  renderAir();
+  renderMethod();
+  if (startHist) enterHist(); else update();
+  if (state.area !== 'all') zoomToArea();
+  $('#mapLoading').remove();
+}
+main();
+})();
+</script>
+</body>
+</html>
