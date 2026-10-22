@@ -622,7 +622,7 @@ const state = {
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
-const MAX_RANGE = 62;  // rentang Riwayat maksimum (hari); tiap hari = satu file arsip
+const MAX_RANGE = 90;  // rentang Riwayat maksimum (hari); tiap hari = satu file arsip
 let INDEX_DAYS = [], INDEX_YEARS = [], INDEX_YB = {};  // tanggal tersedia, tahun, batas per tahun
 let map, hsLayer, provLayer, baseLayer, labelLayer, windLayer, aerosolLayer, airLayer;
 const ctxLayers = {};
@@ -2103,13 +2103,18 @@ function downloadCsv() {
    ===================================================================== */
 const DAY_CACHE = new Map();
 let histReq = 0, playing = false;
+// Simpan paling banyak sekian hari di memori (yang paling lama tidak dipakai dibuang),
+// supaya membuka rentang panjang berkali-kali tidak memberatkan ponsel.
+const DAY_CACHE_MAX = 2 * MAX_RANGE + 20;
 function loadDay(iso) {
   if (!INDEX_MAP.has(iso)) return Promise.resolve(null);
-  if (!DAY_CACHE.has(iso)) {
-    DAY_CACHE.set(iso, fetch(`${CONFIG.archiveUrl}harian/${iso.slice(0, 4)}/${iso}.json`)
-      .then(r => (r.ok ? r.json() : null)).catch(() => null));
-  }
-  return DAY_CACHE.get(iso);
+  let p = DAY_CACHE.get(iso);
+  if (p) { DAY_CACHE.delete(iso); DAY_CACHE.set(iso, p); return p; }
+  p = fetch(`${CONFIG.archiveUrl}harian/${iso.slice(0, 4)}/${iso}.json`)
+    .then(r => (r.ok ? r.json() : null)).catch(() => null);
+  DAY_CACHE.set(iso, p);
+  while (DAY_CACHE.size > DAY_CACHE_MAX) DAY_CACHE.delete(DAY_CACHE.keys().next().value);
+  return p;
 }
 /* Gabungkan file-file harian menjadi struktur yang sama dengan data terkini,
    supaya peta, KPI, peringkat, dan unduhan memakai kode yang sama. */
