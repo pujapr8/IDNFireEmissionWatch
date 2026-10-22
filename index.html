@@ -351,6 +351,13 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
       </div>
     </div>
     <div class="fgroup">
+      <span class="flabel" id="lblSat">Satelit</span>
+      <div class="seg" role="group" aria-labelledby="lblSat" id="segSat">
+        <button type="button" data-v="all" title="Semua satelit VIIRS yang tersedia pada tanggal itu">Semua</button>
+        <button type="button" data-v="snpp" title="Hanya Suomi NPP, satelit yang sama dengan data 2015, 2019, dan 2023, supaya sebanding antartahun">1 satelit (S-NPP)</button>
+      </div>
+    </div>
+    <div class="fgroup">
       <label class="flabel" for="selArea">Wilayah</label>
       <select class="select" id="selArea"><option value="all">Seluruh Indonesia</option></select>
     </div>
@@ -534,6 +541,7 @@ const AGE_ALPHA = [0.9, 0.5, 0.25];  // < 24 jam, 24–48 jam, 2–7 hari
 const WIN_LABEL = { '24h': '24 jam terakhir', '48h': '48 jam terakhir', '7d': '7 hari terakhir' };
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const SAT_NAMES = [[1, 'S-NPP'], [2, 'NOAA-20'], [4, 'NOAA-21']];
+const SNPP_BIT = 1;  // filter "1 satelit": hanya titik yang terdeteksi Suomi NPP
 const ISPU = [
   ['Baik', '--ispu-baik'], ['Sedang', '--ispu-sedang'], ['Tidak Sehat', '--ispu-tidak-sehat'],
   ['Sangat Tidak Sehat', '--ispu-sangat-tidak-sehat'], ['Berbahaya', '--ispu-berbahaya']
@@ -618,7 +626,7 @@ const state = {
   base: 'map', imgDate: null,
   layers: { hotspots: true, boundaries: true, wind: !isMobile(), air: true, aerosol: true },
   windFrame: 0, ctx: {}, trend: 'bulan', rankAll: false, kabN: 10,
-  mode: 'live', histEnd: null, histDays: 1, histRange: false, trendBasis: null, trendCmp: 'set', cmpPreset: null, cmpFrom: null, cmpTo: null
+  sat: 'all', mode: 'live', histEnd: null, histDays: 1, histRange: false, trendBasis: null, trendCmp: 'set', cmpPreset: null, cmpFrom: null, cmpTo: null
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
@@ -636,6 +644,7 @@ function readUrl() {
   if (w) state._areaName = w;
   const tg = p.get('tanggal');
   if (tg && /^\d{4}-\d{2}-\d{2}$/.test(tg)) { state.histEnd = tg; state._histFromUrl = true; }
+  if (p.get('satelit') === 'snpp') state.sat = 'snpp';
   const du = Math.round(+p.get('durasi'));
   if (du >= 1 && du <= MAX_RANGE) { state.histDays = du; state.histRange = ![1, 7, 30].includes(du); }
 }
@@ -644,6 +653,7 @@ function writeUrl() {
   if (state.mode === 'hist') { p.set('tanggal', state.histEnd); if (state.histDays !== 1) p.set('durasi', state.histDays); }
   else if (state.win !== '24h') p.set('periode', state.win);
   if (state.conf === 'h') p.set('keyakinan', 'tinggi');
+  if (state.sat === 'snpp') p.set('satelit', 'snpp');
   const an = areaName(state.area);
   if (state.area !== 'all') p.set('wilayah', an);
   const qs = p.toString();
@@ -711,6 +721,7 @@ function selectRows(fromMin, toMin) {
   for (let i = 0; i < H.n; i++) {
     if (H.tl[i] < fromMin || H.tl[i] >= toMin) continue;
     if (state.conf === 'h' && !H.high[i]) continue;
+    if (state.sat === 'snpp' && !(H.sats[i] & SNPP_BIT)) continue;
     if (ps && !ps.has(H.prov[i])) continue;
     out.push(i);
   }
@@ -1283,7 +1294,7 @@ function update() {
 function renderKpis(agg) {
   const total = agg.length;
   const high = agg.reduce((s, a) => s + a.high, 0);
-  $('#kTotalLabel').textContent = `Titik api, ${winLabel()}` + (state.area !== 'all' ? ` · ${areaName(state.area)}` : '');
+  $('#kTotalLabel').textContent = `Titik api, ${winLabel()}` + (state.area !== 'all' ? ` · ${areaName(state.area)}` : '') + (state.sat === 'snpp' ? ' · 1 satelit (S-NPP)' : '');
   $('#kTotal').textContent = fmt(total);
   const foot = $('#kTotalFoot'); foot.replaceChildren();
   const W = winMinutes();
@@ -1352,6 +1363,12 @@ function maxEntry(m, nameFn) {
 
 /* Nilai 3 satelit per tanggal (arsip) untuk wilayah & keyakinan terpilih */
 function multiValue(iso) {
+  if (state.sat === 'snpp') {
+    const ser = YOY && YOY.series && YOY.series[iso.slice(0, 4)];
+    const k = YOY ? YOY.days.indexOf(iso.slice(5)) : -1;
+    const arr = ser && k >= 0 ? areaSeries(ser[state.conf] || {}) : null;
+    return arr && arr[k] != null ? arr[k] : null;
+  }
   const M = YOY && YOY.multi;
   if (M && +iso.slice(0, 4) === M.year) {
     const k = YOY.days.indexOf(iso.slice(5));
@@ -1373,7 +1390,7 @@ function renderColsHist() {
   const vals = dates.map(multiValue);
   const max = Math.max(1, ...vals.map(v => v || 0));
   const maxIdx = vals.indexOf(Math.max(...vals.map(v => v || 0)));
-  $('#colsSub').textContent = `Hingga ${fmtDateLong(state.histEnd)} · ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'} · ${areaName(state.area)} · klik batang untuk membuka harinya`;
+  $('#colsSub').textContent = `Hingga ${fmtDateLong(state.histEnd)} · ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'}${state.sat === 'snpp' ? ' · S-NPP' : ''} · ${areaName(state.area)} · klik batang untuk membuka harinya`;
   dates.forEach((iso, k) => {
     const v = vals[k], sel = k === 6, ok = INDEX_MAP.has(iso);
     const col = el('div', { class: 'col' + (ok ? ' clickable' : ''), role: 'img', 'aria-label': `${shortDate(iso)}: ${v == null ? 'tidak ada data' : fmt(v) + ' titik api'}` });
@@ -1396,6 +1413,7 @@ function renderCols() {
   const counts = new Array(8).fill(0);
   for (let i = 0; i < H.n; i++) {
     if (state.conf === 'h' && !H.high[i]) continue;
+    if (state.sat === 'snpp' && !(H.sats[i] & SNPP_BIT)) continue;
     if (ps && !ps.has(H.prov[i])) continue;
     counts[H.day[i]]++;
   }
@@ -1403,7 +1421,7 @@ function renderCols() {
   const vals = days.map(d => counts[d] || 0);
   const max = Math.max(1, ...vals);
   const maxIdx = vals.indexOf(Math.max(...vals));
-  $('#colsSub').textContent = `Titik api per hari (WIB), ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'} · ${areaName(state.area)}`;
+  $('#colsSub').textContent = `Titik api per hari (WIB), ${state.conf === 'h' ? 'keyakinan tinggi' : 'nominal & tinggi'}${state.sat === 'snpp' ? ' · S-NPP' : ''} · ${areaName(state.area)}`;
   days.forEach((d, k) => {
     const iso = isoDateAddDays(H.t0Date, d);
     const partial = d === 7;
@@ -2045,6 +2063,7 @@ function renderMethod() {
         el('li', { text: 'Untuk periode 48 jam dan 7 hari, sel yang terdeteksi berulang di hari berbeda tetap dihitung satu titik. Grafik 7 hari menghitung per tanggal.' }),
         el('li', { text: 'Semua waktu dan tanggal memakai WIB.' }),
         el('li', { text: 'Pilihan "Tinggi saja" menampilkan titik yang setidaknya sekali terdeteksi dengan keyakinan tinggi.' }),
+        el('li', { text: 'Pilihan "1 satelit (S-NPP)" hanya menampilkan titik yang terdeteksi Suomi NPP. Satelit ini sudah beroperasi sejak 2012, sedangkan NOAA-20 dan NOAA-21 baru menyusul, jadi pilihan ini membuat peta dan angka tahun berjalan sebanding dengan tahun-tahun sebelumnya.' }),
         el('li', { text: `Perbandingan antartahun memakai satu satelit (${S.ref_label}) agar sebanding; satelit NOAA-20 dan NOAA-21 belum ada pada tahun-tahun awal.` }))),
     ...sec('Riwayat harian',
       p('Mode Riwayat menampilkan arsip harian sejak 1 Januari 2026 dengan cara hitung yang sama. Data hari-hari lama memakai produk standar NASA (SP) bila sudah tersedia, sehingga angkanya bisa sedikit berbeda dari tampilan near real-time pada hari itu. Untuk durasi 30 hari, peta menampilkan kepadatan lokasi titik api per sel ±11 km.')),
@@ -2093,7 +2112,7 @@ function downloadCsv() {
       S.provinces[H.prov[i]] ? S.provinces[H.prov[i]].name : '', H.kab[i] >= 0 && S.kabupaten[H.kab[i]] ? S.kabupaten[H.kab[i]].name : '', ...ctx].map(q).join(','));
   }
   const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-  const a = el('a', { href: URL.createObjectURL(blob), download: `titik-api_${state.mode === 'hist' ? state.histEnd + '_' + state.histDays + 'hari' : state.win}_${areaName(state.area).replace(/\W+/g, '-').toLowerCase()}_${S.generated_wib.slice(0, 10)}.csv` });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `titik-api_${state.mode === 'hist' ? state.histEnd + '_' + state.histDays + 'hari' : state.win}${state.sat === 'snpp' ? '_snpp' : ''}_${areaName(state.area).replace(/\W+/g, '-').toLowerCase()}_${S.generated_wib.slice(0, 10)}.csv` });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -2257,7 +2276,7 @@ function renderHistControls() {
   $('#histPlay').textContent = playing ? '❚❚ Jeda' : '▶ Putar';
   const notes = [];
   if (H && H.missing && H.missing.length) notes.push(`${H.missing.length} hari tanpa arsip`);
-  if (H && H.minSats < 3) notes.push(H.maxSats === H.minSats
+  if (H && H.minSats < 3 && state.sat !== 'snpp') notes.push(H.maxSats === H.minSats
     ? `hanya ${H.minSats} satelit, jadi angkanya lebih kecil daripada hari dengan 3 satelit`
     : `sebagian hari hanya ${H.minSats} satelit`);
   if (state.histRange && state.histDays >= MAX_RANGE) notes.push(`rentang maks. ${MAX_RANGE} hari`);
@@ -2354,7 +2373,7 @@ function bindControls() {
     if (state.mode === 'hist') exitHist(v); else { state.win = v; syncWinSeg(); update(); }
   }));
   syncWinSeg();
-  onSeg('segConf', 'conf'); onSeg('segTrend', 'trend');
+  onSeg('segConf', 'conf'); onSeg('segSat', 'sat'); onSeg('segTrend', 'trend');
   const sel = $('#selArea');
   const og = el('optgroup', { label: 'Wilayah besar' });
   for (const r of S.regions) og.append(el('option', { value: 'r:' + r, text: r }));
