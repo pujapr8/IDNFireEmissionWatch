@@ -172,7 +172,7 @@ def main(argv=None):
                 log.warning("%s: data %s kosong (satelit lain mendeteksi api); tidak dihitung sebagai nol",
                             d, ", ".join(C.SATELLITES[s]["label"] for s in sorted(gone)))
             # Jangan menimpa arsip yang satelitnya lebih lengkap dengan yang kurang lengkap
-            had = HR.day_sats(d)
+            had = HR.effective_sats(d)
             now = {C.SATELLITES[s]["label"] for s in day_sats[d]}
             if had is not None and not now >= set(had):
                 keep.append(d)

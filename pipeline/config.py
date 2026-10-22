@@ -70,7 +70,7 @@ BASELINE_YEARS_DEFAULT = [2015, 2019, 2023, 2024, 2025]
 # Ketiga satelit melintas pada jam yang hampir sama, jadi nol di satu satelit
 # saat yang lain ramai berarti datanya kosong (gangguan/belum diproses), bukan
 # tidak ada api. Hari seperti itu tidak dicatat sebagai nol.
-EMPTY_SAT_MIN_OTHERS = 50
+EMPTY_SAT_MIN_OTHERS = 20
 
 # ---------------------------------------------------------------------------
 # Wilayah besar (dipakai juga di skrip GEE tabel hotspot per wilayah)

@@ -44,6 +44,32 @@ def day_sats(d: date) -> list[str] | None:
     return json.loads(head[i + 7:j + 1])
 
 
+def effective_sats(d: date) -> list[str] | None:
+    """Satelit yang BENAR-BENAR punya data di arsip harian d. Satelit yang
+    tercatat tetapi nol titik padahal satelit lain mendeteksi
+    >= C.EMPTY_SAT_MIN_OTHERS titik dianggap kosong (bukan nol api).
+    None bila arsip hari itu belum ada."""
+    path = day_path(d)
+    if not path.exists():
+        return None
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    listed = obj.get("sats", [])
+    si = obj["fields"].index("sats")
+    by_label = {v["label"]: v["bit"] for v in C.SATELLITES.values()}
+    mine = {lbl: 0 for lbl in listed}
+    others = {lbl: 0 for lbl in listed}
+    for row in obj.get("rows", []):
+        bits = int(row[si])
+        for lbl in listed:
+            bit = by_label.get(lbl, 0)
+            if bits & bit:
+                mine[lbl] += 1
+            if bits & ~bit:
+                others[lbl] += 1
+    return [lbl for lbl in listed
+            if not (mine[lbl] == 0 and others[lbl] >= C.EMPTY_SAT_MIN_OTHERS)]
+
+
 def write_day_json(d: date, groups: pd.DataFrame, sats: list[str], prov_names: list[str],
                    kab_names: list[str], ctx_layers: list[dict]) -> str | None:
     """Tulis titik unik satu tanggal. Waktu disimpan sebagai menit sejak

@@ -84,9 +84,9 @@ def av_covers(sat: str, d: date, av: dict) -> bool:
 
 def needs_fetch(d: date, av: dict) -> tuple[bool, list[str]]:
     """(perlu diunduh?, satelit yang baru bisa dilengkapi). Hari belum ada -> unduh.
-    Hari sudah ada tetapi satelit X belum tercatat padahal FIRMS kini punya
-    datanya -> unduh ulang hari itu."""
-    have = HR.day_sats(d)
+    Hari sudah ada tetapi data satelit X tidak ada atau kosong (nol titik padahal
+    satelit lain mendeteksi api) dan FIRMS kini menyediakannya -> unduh ulang."""
+    have = HR.effective_sats(d)
     if have is None:
         return True, []
     fill = [s for s in C.SATELLITES
@@ -211,7 +211,8 @@ def main(argv=None):
                     refill.setdefault(s, []).append(d)
         months.append((m_first, days, todo))
     for s, ds in refill.items():
-        log.warning("%d hari sudah diarsipkan tanpa data %s; FIRMS kini menyediakannya, diambil ulang: %s",
+        log.warning("%d hari sudah diarsipkan tanpa data %s atau datanya kosong; "
+                    "FIRMS kini menyediakannya, diambil ulang: %s",
                     len(ds), C.SATELLITES[s]["label"], fmt_days(ds))
     n_todo = sum(1 for m in months if m[2])
     if n_todo:
@@ -299,7 +300,7 @@ def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
         if not sats:
             empty.append(d)  # belum ada data satu satelit pun; dicoba lagi lain kali
             continue
-        had = HR.day_sats(d) if keep_more else None
+        had = HR.effective_sats(d) if keep_more else None
         if had is not None and not set(sats) >= set(had):
             kept.append(d)  # arsip lama lebih lengkap; jangan ditimpa
             continue
