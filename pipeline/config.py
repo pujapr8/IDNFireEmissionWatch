@@ -65,12 +65,16 @@ REF_SATELLITE = "VIIRS_SNPP"
 REF_LABEL = "VIIRS S-NPP"
 BASELINE_YEARS_DEFAULT = [2015, 2019, 2023, 2024, 2025]
 
-# Satelit dianggap TIDAK punya data pada suatu hari bila ia tidak mendeteksi
-# satu titik pun sementara satelit lain mendeteksi sedikitnya sekian titik unik.
-# Ketiga satelit melintas pada jam yang hampir sama, jadi nol di satu satelit
-# saat yang lain ramai berarti datanya kosong (gangguan/belum diproses), bukan
-# tidak ada api. Hari seperti itu tidak dicatat sebagai nol.
+# Satelit dianggap TIDAK punya data (lengkap) pada suatu hari bila:
+#  - nol titik padahal satelit lain mendeteksi >= EMPTY_SAT_MIN_OTHERS titik, atau
+#  - titiknya < EMPTY_SAT_RATIO x satelit lain yang terbanyak, dan satelit itu
+#    mendeteksi >= EMPTY_SAT_RATIO_MIN titik (mis. S-NPP 15 vs NOAA-20 4.000).
+# Ketiga satelit VIIRS sama dan melintas berselang <1 jam, jadi selisih sebesar
+# itu berarti data bolong (gangguan satelit), bukan beda kondisi api. Hari seperti
+# itu tidak dihitung di perbandingan antartahun.
 EMPTY_SAT_MIN_OTHERS = 20
+EMPTY_SAT_RATIO = 0.25
+EMPTY_SAT_RATIO_MIN = 100
 
 # ---------------------------------------------------------------------------
 # Wilayah besar (dipakai juga di skrip GEE tabel hotspot per wilayah)
@@ -163,6 +167,26 @@ AEROSOL_ARCHIVE_DIRNAME = "aerosol_ai"
 # Indeks aerosol Sentinel-5P baru tersedia sejak akhir April 2018
 AEROSOL_START = "2018-05-01"
 AEROSOL_CATCHUP_PER_RUN = 50  # maks. citra arsip yang belum ada, diunduh per pembaruan
+
+# Bola dunia Sentinel-5P: aerosol UV & karbon monoksida, ditampilkan sebagai
+# rata-rata 3 hari. Arsip menyimpan satu PNG per hari per variabel (grid
+# lintang-bujur); dashboard yang merata-ratakan 3 hari dan mewarnainya.
+# Piksel 1..255 = nilai min..max (linear), 0 = tidak ada data.
+S5P_BBOX = (65.0, -45.0, 170.0, 30.0)  # W, S, E, N; India timur s.d. Pasifik barat, Australia
+S5P_RES = 0.125  # derajat per piksel (~14 km); 840 x 600 piksel
+S5P_START = "2026-08-01"  # tanggal pertama di garis waktu
+S5P_CATCHUP_PER_RUN = 40  # citra yang belum ada, diunduh per variabel per pembaruan
+S5P_DIRNAME = "s5p"
+# Kolom CO (mol/m2) -> perkiraan rasio campuran rata-rata kolom (ppb), memakai
+# kolom udara kering pada tekanan permukaan standar: 101325 / (9,80665 x 0,028964)
+# = 356.770 mol/m2. Di dataran tinggi angka ini sedikit lebih rendah dari aslinya.
+S5P_AIR_COLUMN = 356770.0
+S5P_VARS = {
+    "aer": {"label": "Aerosol", "band": "AER_AI_340_380", "factor": 1.0,
+            "min": -2.0, "max": 6.0, "unit": "indeks aerosol UV"},
+    "co": {"label": "Karbon monoksida", "band": "CO", "factor": 1e9 / S5P_AIR_COLUMN,
+           "min": 0.0, "max": 254.0, "unit": "ppb"},
+}
 
 # Kategori mengikuti ambang ISPU PM2.5 (rata-rata 24 jam)
 ISPU_PM25 = [

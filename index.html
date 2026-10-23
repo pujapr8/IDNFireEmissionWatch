@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {
   color-scheme: light;
@@ -316,6 +319,68 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
   .seg button { padding: 5px 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
+
+/* ---------- bola dunia Sentinel-5P (aerosol & CO, rata-rata 3 hari) ---------- */
+/* Panel sengaja selalu gelap (gaya penampil satelit) di tema terang maupun gelap. */
+.s5p {
+  --s5-bg: #0a0f16; --s5-bar: #0d131c; --s5-ink: #edf1f6; --s5-ink2: #b9c3d0; --s5-muted: #7d8999;
+  --s5-line: rgba(255,255,255,.10); --s5-box: rgba(11,16,24,.86); --s5-mark: #f2a33a;
+  --s5-cond: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --s5-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  position: relative; background: var(--s5-bg); color: var(--s5-ink); border-radius: 12px; overflow: hidden;
+  margin-top: 4px; color-scheme: dark;
+}
+.s5p-top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 28px; align-items: center; padding: 14px 18px 12px; background: var(--s5-bar); border-bottom: 1px solid var(--s5-line); }
+.s5p-date .d { font-family: var(--s5-cond); font-weight: 700; font-size: clamp(26px, 3.2vw, 40px); line-height: 1; letter-spacing: .005em; white-space: nowrap; }
+.s5p-date .r { font-family: var(--s5-mono); font-size: 12.5px; color: var(--s5-ink2); margin-top: 6px; white-space: nowrap; }
+.s5p-tl { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.s5p-play { flex: none; width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--s5-line); background: #151c27; color: var(--s5-ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.s5p-play svg { width: 12px; height: 12px; fill: currentColor; }
+.s5p-track { position: relative; flex: 1; min-width: 0; height: 46px; cursor: pointer; touch-action: none; }
+.s5p-track svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.s5p-track .ax { stroke: rgba(255,255,255,.35); stroke-width: 1; }
+.s5p-track .tk { stroke: rgba(255,255,255,.45); stroke-width: 1; }
+.s5p-track .ml { font-family: var(--s5-mono); font-size: 11.5px; fill: var(--s5-ink2); letter-spacing: .06em; }
+.s5p-track .mk { fill: var(--s5-mark); }
+.s5p-track .nd { fill: rgba(255,255,255,.12); }
+.s5p-track:focus-within .mk { stroke: #fff; stroke-width: 1.5; }
+.s5p-globes { position: relative; display: grid; grid-template-columns: 1fr 1fr; height: clamp(420px, 46vw, 640px); }
+.s5p-g { position: relative; min-width: 0; }
+.s5p-g + .s5p-g { border-left: 1px solid var(--s5-line); }
+.s5p-g canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
+.s5p-g canvas.drag { cursor: grabbing; }
+.s5p-leg { position: absolute; left: 12px; top: 12px; width: min(380px, calc(100% - 24px)); background: var(--s5-box); border: 1px solid var(--s5-line); border-radius: 6px; padding: 9px 12px 10px; pointer-events: none; }
+.s5p-leg .t { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.s5p-leg .t b { font-family: var(--s5-cond); font-weight: 700; font-size: 20px; line-height: 1.1; }
+.s5p-leg .t span { font-family: var(--s5-mono); font-size: 12px; color: var(--s5-ink2); }
+.s5p-leg .bar { height: 9px; border-radius: 1px; margin: 7px 0 3px; }
+.s5p-leg .ticks { position: relative; height: 15px; font-family: var(--s5-mono); font-size: 11.5px; color: var(--s5-ink2); }
+.s5p-leg .ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.s5p-leg .ticks span:first-child { transform: none; }
+.s5p-leg .ticks span:last-child { transform: translateX(-100%); }
+.s5p-leg .n { font-family: var(--s5-mono); font-size: 11px; line-height: 1.45; color: var(--s5-ink2); margin-top: 4px; }
+.s5p-zoom { position: absolute; right: 12px; top: 12px; display: grid; gap: 6px; z-index: 2; }
+.s5p-zoom button { width: 38px; height: 38px; border-radius: 6px; border: 1px solid var(--s5-line); background: #121925; color: var(--s5-ink); font-size: 20px; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.s5p-zoom button:hover, .s5p-play:hover { background: #1b2433; }
+.s5p-zoom svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.s5p-hint, .s5p-read { position: absolute; bottom: 10px; font-family: var(--s5-mono); font-size: 11.5px; color: var(--s5-ink2); background: var(--s5-box); border: 1px solid var(--s5-line); border-radius: 4px; padding: 4px 8px; pointer-events: none; }
+.s5p-hint { right: 12px; }
+.s5p-read { left: 12px; }
+.s5p-read:empty { display: none; }
+.s5p-msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; font-family: var(--s5-mono); font-size: 13px; color: var(--s5-ink2); pointer-events: none; }
+.s5p-msg:empty { display: none; }
+.s5p button:focus-visible { outline: 2px solid var(--s5-mark); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .s5p-top { grid-template-columns: minmax(0, 1fr); }
+  .s5p-globes { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .s5p-g { height: min(560px, 100vw); }
+  .s5p-g + .s5p-g { border-left: 0; border-top: 1px solid var(--s5-line); }
+  .s5p-leg { padding: 7px 9px 8px; }
+  .s5p-leg .t b { font-size: 17px; }
+  .s5p-leg .n { display: none; }
+  .s5p-hint { display: none; }
+  .s5p-zoom { top: auto; bottom: 12px; grid-auto-flow: column; }
+}
 </style>
 </head>
 <body>
@@ -479,6 +544,33 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
       <div class="tbl-wrap" style="margin-top:8px"><table class="tbl" id="ytdTbl"></table></div>
     </details>
     <p class="note" id="trendNote"></p>
+  </section>
+
+  <section class="card" id="secS5P" aria-labelledby="s5pTitle">
+    <h2 id="s5pTitle">Asap dan karbon monoksida di atmosfer</h2>
+    <p class="sub">Citra satelit Sentinel-5P, rata-rata 3 hari. Geser garis waktu untuk melihat hari lain, seret bola untuk memutar.</p>
+    <div class="s5p" id="s5p">
+      <div class="s5p-top">
+        <div class="s5p-date" aria-live="polite"><div class="d" id="s5pDate">&nbsp;</div><div class="r" id="s5pRange">&nbsp;</div></div>
+        <div class="s5p-tl">
+          <button type="button" class="s5p-play" id="s5pPlay" aria-label="Putar"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z"/></svg></button>
+          <div class="s5p-track" id="s5pTrack"><svg id="s5pAxis" aria-hidden="true"></svg><input type="range" class="sr-only" id="s5pSlider" min="0" max="0" value="0" aria-label="Tanggal citra"></div>
+        </div>
+      </div>
+      <div class="s5p-globes" id="s5pGlobes">
+        <div class="s5p-g" data-var="aer"><canvas role="img" aria-label="Bola dunia indeks aerosol UV"></canvas><div class="s5p-leg" data-leg="aer"></div></div>
+        <div class="s5p-g" data-var="co"><canvas role="img" aria-label="Bola dunia karbon monoksida"></canvas><div class="s5p-leg" data-leg="co"></div></div>
+        <div class="s5p-zoom">
+          <button type="button" id="s5pIn" aria-label="Perbesar">+</button>
+          <button type="button" id="s5pOut" aria-label="Perkecil">&minus;</button>
+          <button type="button" id="s5pReset" aria-label="Kembali ke tampilan awal"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5M3 2.5v3h3"/></svg></button>
+        </div>
+        <div class="s5p-read" id="s5pRead"></div>
+        <div class="s5p-hint">Seret untuk memutar &middot; Ctrl + gulir untuk zoom</div>
+        <div class="s5p-msg" id="s5pMsg">Memuat citra&hellip;</div>
+      </div>
+    </div>
+    <p class="note">Sumber: Copernicus Sentinel-5P (TROPOMI) melalui Copernicus Data Space Ecosystem. Setiap peta adalah rata-rata hari itu dan dua hari sebelumnya, dihitung per piksel yang punya data. Karbon monoksida dalam ppb adalah perkiraan dari kolom CO dengan tekanan udara standar.</p>
   </section>
 
   <section class="card" id="secAir">
@@ -2480,6 +2572,373 @@ async function main() {
   $('#mapLoading').remove();
 }
 main();
+})();
+</script>
+<script>
+/* Bola dunia Sentinel-5P: aerosol UV & karbon monoksida, rata-rata 3 hari.
+   Arsip: data/archive/s5p/<var>/<tahun>/<tanggal>.png (abu-abu, nilai terkode),
+   indeks di data/archive/s5p/indeks.json. Pustaka d3 & peta dunia dimuat
+   hanya saat bagian ini mendekati layar. */
+(function () {
+  'use strict';
+  const root = document.getElementById('s5p');
+  if (!root) return;
+  const BASE = 'data/archive/';
+  const LIBS = ['https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js',
+    'https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js'];
+  const WORLD_FINE = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/land-50m.json';
+  const WORLD_COARSE = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/land-110m.json';
+  // Garis pantai detail hanya untuk kawasan ini; di luar itu (dan saat diseret) versi sederhana
+  const FINE_BOX = [70, -55, 175, 45];
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+  const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const VIEW0 = { lon: 117, lat: -6, zoom: 1 };
+  const DEG = 180 / Math.PI, RAD = Math.PI / 180;
+  // Skala warna. lo..hi = rentang legenda; nilai di luar memakai warna ujung.
+  const RAMPS = {
+    aer: { title: 'Aerosol', unit: 'indeks aerosol UV', lo: -1, hi: 4, dec: 1,
+      stops: [[-1, '#1b2a5c'], [-0.5, '#46598c'], [0, '#dde2e9'], [0.5, '#f4da78'], [1, '#f1b232'], [2, '#e38ab6'], [3, '#bf5ad0'], [4, '#8b2be0']],
+      ticks: [[-1, '-1'], [0, '0'], [1, '1'], [2, '2'], [4, '4+']],
+      note: 'Biru: udara relatif bersih. Tanpa warna: tidak ada data. Garis putus-putus: batas wilayah data.' },
+    co: { title: 'Karbon monoksida', unit: '', lo: 0, hi: 180, dec: 0, suffix: ' ppb',
+      stops: [[0, '#5b1fa8'], [25, '#3a4ee0'], [50, '#1c9ee0'], [70, '#22bfb3'], [90, '#46c76a'], [110, '#c6d83a'], [130, '#f2c22e'], [150, '#ef8227'], [165, '#d42b1e'], [180, '#9a0c10']],
+      ticks: [[0, '0'], [60, '60'], [120, '120'], [180, '180+ ppb']],
+      note: 'Tanpa warna: tidak ada data. Garis putus-putus: batas wilayah data.' }
+  };
+  // Urut menurut prioritas: bila bertabrakan, yang di belakang tidak ditulis
+  const LABELS = [['KALIMANTAN', 114.0, 0.9], ['SUMATERA', 101.4, -3.0], ['PAPUA', 138.6, -4.6], ['AUSTRALIA', 134.0, -24.5],
+    ['SULAWESI', 121.2, -2.3], ['JAWA', 110.0, -7.9], ['MALAYSIA', 102.4, 4.4], ['FILIPINA', 122.6, 12.0], ['VIETNAM', 106.6, 14.2]];
+  const C_SEA = '#0f1a2b', C_LAND = '#2c3038', C_COAST = 'rgba(226,233,243,.55)', C_GRAT = 'rgba(255,255,255,.07)';
+
+  const $ = id => document.getElementById(id);
+  const msg = $('s5pMsg');
+  let IDX = null, DATES = [], di = 0, grid = null, LAND = null, LAND_FAST = null, GRAT = null, BBOX = null;
+  const view = { ...VIEW0 };
+  const globes = [...root.querySelectorAll('.s5p-g')].map(el => ({ el, v: el.dataset.var, cv: el.querySelector('canvas') }));
+  const means = { aer: null, co: null };
+
+  // ---------- util ----------
+  const iso = d => d.toISOString().slice(0, 10);
+  const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+  const parts = s => { const d = new Date(s + 'T00:00:00Z'); return [d.getUTCDate(), d.getUTCMonth(), d.getUTCFullYear()]; };
+  function rangeText(a, b) {
+    const [d1, m1, y1] = parts(a), [d2, m2, y2] = parts(b);
+    if (y1 !== y2) return `${d1} ${BLN[m1]} ${y1}–${d2} ${BLN[m2]} ${y2}`;
+    if (m1 !== m2) return `${d1} ${BLN[m1]}–${d2} ${BLN[m2]} ${y2}`;
+    return `${d1}–${d2} ${BLN[m2]} ${y2}`;
+  }
+  const NF = (v, dec) => v.toLocaleString('id-ID', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  function loadScript(src) {
+    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error(src)); document.head.appendChild(s); });
+  }
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  function makeLut(r) {
+    const L = new Uint8ClampedArray(256 * 4), st = r.stops.map(([v, c]) => [v, hex(c)]);
+    for (let i = 0; i < 256; i++) {
+      const v = r.lo + (r.hi - r.lo) * i / 255;
+      let k = 0; while (k < st.length - 2 && v > st[k + 1][0]) k++;
+      const [v0, c0] = st[k], [v1, c1] = st[k + 1], u = Math.max(0, Math.min(1, (v - v0) / (v1 - v0)));
+      for (let j = 0; j < 3; j++) L[i * 4 + j] = c0[j] + (c1[j] - c0[j]) * u;
+      L[i * 4 + 3] = 255;
+    }
+    return L;
+  }
+  const LUT = { aer: makeLut(RAMPS.aer), co: makeLut(RAMPS.co) };
+
+  // ---------- legenda ----------
+  for (const el of root.querySelectorAll('.s5p-leg')) {
+    const r = RAMPS[el.dataset.leg], span = r.hi - r.lo;
+    const grad = r.stops.map(([v, c]) => `${c} ${((v - r.lo) / span * 100).toFixed(1)}%`).join(', ');
+    el.innerHTML = `<div class="t"><b>${r.title}</b>${r.unit ? `<span>${r.unit}</span>` : ''}</div>` +
+      `<div class="bar" style="background:linear-gradient(90deg, ${grad})"></div>` +
+      `<div class="ticks">${r.ticks.map(([v, t]) => `<span style="left:${((v - r.lo) / span * 100).toFixed(1)}%">${t}</span>`).join('')}</div>` +
+      `<div class="n">${r.note}</div>`;
+  }
+
+  // ---------- data ----------
+  const RAW = new Map();      // var|tanggal -> Uint8Array (nilai terkode) atau null
+  const MEAN = new Map();     // var|tanggal -> {m: Float32Array, n: jumlah hari}
+  function dayUrl(v, d) { return `${BASE}${IDX.vars[v].dir}/${d.slice(0, 4)}/${d}.png`; }
+  function getRaw(v, d) {
+    const key = v + '|' + d;
+    if (RAW.has(key)) return RAW.get(key);
+    const p = (async () => {
+      if (!IDX.vars[v].daySet.has(d)) return null;
+      try {
+        const r = await fetch(dayUrl(v, d));
+        if (!r.ok) return null;
+        const bmp = await createImageBitmap(await r.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+        const c = document.createElement('canvas'); c.width = grid.width; c.height = grid.height;
+        const x = c.getContext('2d', { willReadFrequently: true });
+        x.drawImage(bmp, 0, 0, grid.width, grid.height);
+        const px = x.getImageData(0, 0, grid.width, grid.height).data, out = new Uint8Array(grid.width * grid.height);
+        for (let i = 0, j = 0; i < out.length; i++, j += 4) out[i] = px[j + 3] ? px[j] : 0;
+        return out;
+      } catch (e) { return null; }
+    })();
+    RAW.set(key, p);
+    if (RAW.size > 40) RAW.delete(RAW.keys().next().value);
+    return p;
+  }
+  async function getMean(v, d) {
+    const key = v + '|' + d;
+    if (MEAN.has(key)) return MEAN.get(key);
+    const meta = IDX.vars[v], n = grid.width * grid.height, step = (meta.max - meta.min) / 254;
+    const raws = (await Promise.all([addDays(d, -2), addDays(d, -1), d].map(x => getRaw(v, x)))).filter(Boolean);
+    const sum = new Float32Array(n), cnt = new Uint8Array(n), m = new Float32Array(n);
+    for (const u of raws) for (let i = 0; i < n; i++) { const c = u[i]; if (c) { sum[i] += meta.min + (c - 1) * step; cnt[i]++; } }
+    for (let i = 0; i < n; i++) m[i] = cnt[i] ? sum[i] / cnt[i] : NaN;
+    const out = { m, n: raws.length };
+    MEAN.set(key, out);
+    if (MEAN.size > 8) MEAN.delete(MEAN.keys().next().value);
+    return out;
+  }
+
+  // ---------- gambar ----------
+  // Saat diseret/di-zoom: raster resolusi rendah; 180 ms setelah berhenti: resolusi penuh
+  let raf = 0, fastMode = false, idleT = 0;
+  function requestDraw(fast) {
+    if (fast) {
+      fastMode = true; clearTimeout(idleT);
+      idleT = setTimeout(() => { fastMode = false; requestDraw(false); }, 180);
+    }
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+  function frame() {
+    raf = 0;
+    for (const g of globes) drawGlobe(g, fastMode);
+  }
+  function sizeGlobe(g) {
+    const r = g.el.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    g.W = r.width; g.H = r.height; g.dpr = dpr;
+    g.cv.width = Math.round(g.W * dpr); g.cv.height = Math.round(g.H * dpr);
+    g.ctx = g.cv.getContext('2d');
+    g.off = g.off || document.createElement('canvas');
+  }
+  function radius(g) { return Math.min(g.W, g.H) / 2 * 0.94 * view.zoom; }
+  function projection(g) {
+    return d3.geoOrthographic().scale(radius(g)).translate([g.W / 2, g.H / 2]).rotate([-view.lon, -view.lat]).clipAngle(90).precision(0.4);
+  }
+  // Path2D dibuat sekali per bingkai dan dipakai kedua bola (ukurannya sama)
+  const pathCache = { key: '', land: null, grat: null, bbox: null };
+  function paths(g, proj, fast) {
+    const key = [g.W, g.H, view.lon, view.lat, view.zoom, fast].join('|');
+    if (pathCache.key !== key) {
+      const gp = d3.geoPath(proj);
+      pathCache.key = key;
+      pathCache.land = new Path2D(gp(fast ? LAND_FAST : LAND) || '');
+      pathCache.grat = new Path2D(gp(GRAT) || '');
+      pathCache.bbox = new Path2D(gp(BBOX) || '');
+    }
+    return pathCache;
+  }
+  function drawGlobe(g, fast) {
+    if (!g.W || !LAND) return;
+    const ctx = g.ctx, R = radius(g), cx = g.W / 2, cy = g.H / 2;
+    const proj = projection(g), path = d3.geoPath(proj, ctx), P = paths(g, proj, fast);
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.clearRect(0, 0, g.W, g.H);
+    // pendar atmosfer
+    const glow = ctx.createRadialGradient(cx, cy, R * 0.96, cx, cy, R * 1.13);
+    glow.addColorStop(0, 'rgba(84,140,230,.42)'); glow.addColorStop(1, 'rgba(84,140,230,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, R * 1.13, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = C_SEA; ctx.fill();
+    ctx.fillStyle = C_LAND; ctx.fill(P.land);
+    drawRaster(g, R, fast);
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.strokeStyle = C_GRAT; ctx.lineWidth = 0.6; ctx.stroke(P.grat);
+    ctx.strokeStyle = C_COAST; ctx.lineWidth = 0.7; ctx.stroke(P.land);
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.stroke(P.bbox); ctx.setLineDash([]);
+    // label wilayah (hanya yang menghadap ke depan)
+    ctx.font = `700 ${Math.max(11, Math.min(15, R / 22))}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    const taken = [];  // label yang bertabrakan dengan label lebih penting dilewati
+    for (const [t, lo, la] of LABELS) {
+      if (d3.geoDistance([lo, la], [view.lon, view.lat]) > 1.4) continue;
+      const p = proj([lo, la]); if (!p) continue;
+      const txt = t.split('').join(String.fromCharCode(8202));
+      const w = ctx.measureText(txt).width + 6, h = 16, box = [p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2];
+      if (taken.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+      taken.push(box);
+      ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(6,10,16,.85)'; ctx.strokeText(txt, p[0], p[1]);
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fillText(txt, p[0], p[1]);
+    }
+  }
+  // Raster: tiap piksel layar dibalik ke lintang/bujur (proyeksi ortografis), lalu diambil nilai rata-rata 3 hari
+  function drawRaster(g, R, fast) {
+    const M = means[g.v]; if (!M) return;
+    const rs = fast ? 0.5 : Math.min(g.dpr, 1.5), rw = Math.ceil(g.W * rs), rh = Math.ceil(g.H * rs);
+    if (g.off.width !== rw || g.off.height !== rh) { g.off.width = rw; g.off.height = rh; g.img = g.off.getContext('2d').createImageData(rw, rh); }
+    const data = g.img.data; data.fill(0);
+    const lut = LUT[g.v], r = RAMPS[g.v], span = r.hi - r.lo, m = M.m;
+    const [W0, S0, E0, N0] = grid.bbox, res = grid.res, gw = grid.width, gh = grid.height;
+    const phi0 = view.lat * RAD, lam0 = view.lon * RAD, sp = Math.sin(phi0), cp = Math.cos(phi0);
+    const Rr = R * rs, cxr = g.W / 2 * rs, cyr = g.H / 2 * rs;
+    const y0 = Math.max(0, Math.floor(cyr - Rr)), y1 = Math.min(rh, Math.ceil(cyr + Rr));
+    for (let y = y0; y < y1; y++) {
+      const py = (cyr - (y + 0.5)) / Rr; if (py <= -1 || py >= 1) continue;
+      const half = Math.sqrt(1 - py * py) * Rr;
+      const xa = Math.max(0, Math.floor(cxr - half)), xb = Math.min(rw, Math.ceil(cxr + half));
+      let o = (y * rw + xa) * 4;
+      for (let x = xa; x < xb; x++, o += 4) {
+        const px = ((x + 0.5) - cxr) / Rr, r2 = px * px + py * py;
+        if (r2 >= 1) continue;
+        const cc = Math.sqrt(1 - r2);
+        const lat = Math.asin(cc * sp + py * cp) * DEG;
+        let lon = (lam0 + Math.atan2(px, cc * cp - py * sp)) * DEG;
+        if (lon > 180) lon -= 360; else if (lon < -180) lon += 360;
+        const col = Math.floor((lon - W0) / res), row = Math.floor((N0 - lat) / res);
+        if (col < 0 || row < 0 || col >= gw || row >= gh) continue;
+        const v = m[row * gw + col];
+        if (v !== v) continue;
+        let k = Math.round((v - r.lo) / span * 255); k = (k < 0 ? 0 : k > 255 ? 255 : k) * 4;
+        data[o] = lut[k]; data[o + 1] = lut[k + 1]; data[o + 2] = lut[k + 2]; data[o + 3] = 255;
+      }
+    }
+    g.off.getContext('2d').putImageData(g.img, 0, 0);
+    const ctx = g.ctx;
+    ctx.setTransform(g.dpr, 0, 0, g.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(g.off, 0, 0, rw, rh, 0, 0, g.W, g.H);
+  }
+  function valueAt(v, lon, lat) {
+    const M = means[v]; if (!M) return NaN;
+    const [W0, , , N0] = grid.bbox, col = Math.floor((lon - W0) / grid.res), row = Math.floor((N0 - lat) / grid.res);
+    if (col < 0 || row < 0 || col >= grid.width || row >= grid.height) return NaN;
+    return M.m[row * grid.width + col];
+  }
+
+  // ---------- garis waktu ----------
+  const track = $('s5pTrack'), axis = $('s5pAxis'), slider = $('s5pSlider');
+  const PAD = 8;
+  function xOf(i, w) { return PAD + (DATES.length > 1 ? i / (DATES.length - 1) : 0) * (w - 2 * PAD); }
+  function drawAxis() {
+    const w = track.clientWidth, h = track.clientHeight, base = h - 12;
+    let s = `<line class="ax" x1="${PAD}" x2="${w - PAD}" y1="${base}" y2="${base}"/>`;
+    DATES.forEach((d, i) => {
+      const [dd, mm] = parts(d), x = xOf(i, w).toFixed(1);
+      if (dd === 1) s += `<line class="tk" x1="${x}" x2="${x}" y1="${base - 16}" y2="${base + 4}"/><text class="ml" x="${+x + 5}" y="${base - 8}">${MON[mm]}</text>`;
+      else if (dd === 11 || dd === 21) s += `<line class="tk" x1="${x}" x2="${x}" y1="${base - 6}" y2="${base + 4}"/>`;
+      const has = IDX.vars.aer.daySet.has(d) || IDX.vars.co.daySet.has(d);
+      if (!has) s += `<rect class="nd" x="${(+x - 1)}" y="${base - 2}" width="2" height="4"/>`;
+    });
+    s += `<rect class="mk" x="${(xOf(di, w) - 2).toFixed(1)}" y="${base - 13}" width="4" height="22" rx="1"/>`;
+    axis.innerHTML = s;
+  }
+  function idxFromX(clientX) {
+    const r = track.getBoundingClientRect(), u = (clientX - r.left - PAD) / Math.max(1, r.width - 2 * PAD);
+    return Math.max(0, Math.min(DATES.length - 1, Math.round(u * (DATES.length - 1))));
+  }
+  track.addEventListener('pointerdown', e => { stopPlay(); track.setPointerCapture(e.pointerId); setDate(idxFromX(e.clientX)); slider.focus({ preventScroll: true }); });
+  track.addEventListener('pointermove', e => { if (track.hasPointerCapture(e.pointerId)) setDate(idxFromX(e.clientX)); });
+  slider.addEventListener('input', () => { stopPlay(); setDate(+slider.value); });
+
+  let token = 0;
+  async function setDate(i) {
+    di = Math.max(0, Math.min(DATES.length - 1, i));
+    const d = DATES[di], [dd, mm, yy] = parts(d), t = ++token;
+    slider.value = di; slider.setAttribute('aria-valuetext', `${dd} ${BULAN[mm]} ${yy}`);
+    $('s5pDate').textContent = `${dd} ${BULAN[mm]} ${yy}`;
+    drawAxis();
+    const [a, c] = await Promise.all([getMean('aer', d), getMean('co', d)]);
+    if (t !== token) return;
+    means.aer = a; means.co = c;
+    const n = Math.max(a.n, c.n);
+    $('s5pRange').textContent = n ? `rata-rata ${n} hari · ${rangeText(addDays(d, -2), d)}` : 'tidak ada data untuk tanggal ini';
+    msg.textContent = n ? '' : '';
+    requestDraw(false);
+    // muat lebih dulu hari berikutnya supaya pemutaran mulus
+    if (di + 1 < DATES.length) { getRaw('aer', DATES[di + 1]); getRaw('co', DATES[di + 1]); }
+  }
+
+  // ---------- putar ----------
+  const playBtn = $('s5pPlay'), PLAY = '<path d="M2 1l9 5-9 5z"/>', PAUSE = '<path d="M2 1h3v10H2zM7 1h3v10H7z"/>';
+  let timer = 0;
+  function stopPlay() { if (timer) { clearTimeout(timer); timer = 0; } playBtn.querySelector('svg').innerHTML = PLAY; playBtn.setAttribute('aria-label', 'Putar'); }
+  async function step() { await setDate(di + 1 >= DATES.length ? 0 : di + 1); if (timer) timer = setTimeout(step, 650); }
+  playBtn.addEventListener('click', () => {
+    if (timer) return stopPlay();
+    playBtn.querySelector('svg').innerHTML = PAUSE; playBtn.setAttribute('aria-label', 'Jeda');
+    timer = setTimeout(step, 10);
+  });
+
+  // ---------- putar & zoom bola ----------
+  function setZoom(z) { view.zoom = Math.max(1, Math.min(8, z)); requestDraw(true); }
+  $('s5pIn').addEventListener('click', () => setZoom(view.zoom * 1.5));
+  $('s5pOut').addEventListener('click', () => setZoom(view.zoom / 1.5));
+  $('s5pReset').addEventListener('click', () => { Object.assign(view, VIEW0); requestDraw(false); });
+  const read = $('s5pRead');
+  function lonLatAt(g, e) {
+    const b = g.cv.getBoundingClientRect(), R = radius(g);
+    const px = (e.clientX - b.left - g.W / 2) / R, py = (g.H / 2 - (e.clientY - b.top)) / R, r2 = px * px + py * py;
+    if (r2 >= 1) return null;
+    const cc = Math.sqrt(1 - r2), sp = Math.sin(view.lat * RAD), cp = Math.cos(view.lat * RAD);
+    let lon = view.lon + Math.atan2(px, cc * cp - py * sp) * DEG;
+    if (lon > 180) lon -= 360; else if (lon < -180) lon += 360;
+    return [lon, Math.asin(cc * sp + py * cp) * DEG];
+  }
+  function showRead(ll) {
+    if (!ll) { read.textContent = ''; return; }
+    const [lon, lat] = ll, a = valueAt('aer', lon, lat), c = valueAt('co', lon, lat);
+    const pos = `${NF(Math.abs(lat), 1)}° ${lat < 0 ? 'LS' : 'LU'} · ${NF(Math.abs(lon), 1)}° ${lon < 0 ? 'BB' : 'BT'}`;
+    read.textContent = `${pos} — aerosol ${a === a ? NF(a, 1) : '–'} · CO ${c === c ? NF(c, 0) + ' ppb' : '–'}`;
+  }
+  for (const g of globes) {
+    let last = null;
+    g.cv.addEventListener('pointerdown', e => { last = [e.clientX, e.clientY]; g.cv.setPointerCapture(e.pointerId); g.cv.classList.add('drag'); });
+    g.cv.addEventListener('pointermove', e => {
+      if (last && g.cv.hasPointerCapture(e.pointerId)) {
+        const R = radius(g), dx = e.clientX - last[0], dy = e.clientY - last[1];
+        last = [e.clientX, e.clientY];
+        view.lon -= dx / R * DEG; view.lat = Math.max(-80, Math.min(80, view.lat + dy / R * DEG));
+        if (view.lon > 180) view.lon -= 360; else if (view.lon < -180) view.lon += 360;
+        requestDraw(true);
+      } else if (e.pointerType === 'mouse') showRead(lonLatAt(g, e));
+    });
+    const end = () => { last = null; g.cv.classList.remove('drag'); requestDraw(false); };
+    g.cv.addEventListener('pointerup', end); g.cv.addEventListener('pointercancel', end);
+    g.cv.addEventListener('pointerleave', () => showRead(null));
+    g.cv.addEventListener('dblclick', () => setZoom(view.zoom * 1.5));
+    g.cv.addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); setZoom(view.zoom * Math.exp(-e.deltaY * 0.003)); }, { passive: false });
+  }
+
+  // ---------- mulai ----------
+  async function init() {
+    try {
+      const r = await fetch(BASE + 's5p/indeks.json', { cache: 'no-cache' });
+      if (!r.ok) throw new Error('indeks');
+      IDX = await r.json();
+    } catch (e) { msg.textContent = 'Citra Sentinel-5P belum tersedia. Arsipnya terisi otomatis pada pembaruan data berikutnya.'; return; }
+    grid = IDX.grid;
+    for (const v of Object.keys(IDX.vars)) IDX.vars[v].daySet = new Set(IDX.vars[v].days);
+    const all = Object.values(IDX.vars).flatMap(v => v.days).sort();
+    if (!all.length) { msg.textContent = 'Citra Sentinel-5P belum tersedia. Arsipnya terisi otomatis pada pembaruan data berikutnya.'; return; }
+    for (let d = IDX.start < all[0] ? IDX.start : all[0]; d <= all[all.length - 1]; d = addDays(d, 1)) DATES.push(d);
+    slider.max = DATES.length - 1;
+    try {
+      await Promise.all(LIBS.map(loadScript));
+      const [fine, coarse] = await Promise.all([WORLD_FINE, WORLD_COARSE].map(u => fetch(u).then(r => r.json())));
+      const polys = (topo) => { const f = topojson.feature(topo, topo.objects.land); return f.type === 'FeatureCollection' ? f.features.flatMap(x => x.geometry.coordinates) : (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [f.geometry.coordinates]); };
+      const inBox = poly => { const [a, b, c, d] = d3.geoBounds({ type: 'Polygon', coordinates: poly }).flat(); return c >= FINE_BOX[0] && a <= FINE_BOX[2] && d >= FINE_BOX[1] && b <= FINE_BOX[3]; };
+      const coarseAll = polys(coarse);
+      LAND_FAST = { type: 'MultiPolygon', coordinates: coarseAll };
+      LAND = { type: 'MultiPolygon', coordinates: polys(fine).filter(inBox).concat(coarseAll.filter(p => !inBox(p))) };
+    } catch (e) { msg.textContent = 'Peta dasar gagal dimuat. Muat ulang halaman untuk mencoba lagi.'; return; }
+    GRAT = d3.geoGraticule10();
+    const [W0, S0, E0, N0] = grid.bbox, ring = [], stp = 0.5;
+    for (let x = W0; x <= E0; x += stp) ring.push([x, S0]);
+    for (let y = S0; y <= N0; y += stp) ring.push([E0, y]);
+    for (let x = E0; x >= W0; x -= stp) ring.push([x, N0]);
+    for (let y = N0; y >= S0; y -= stp) ring.push([W0, y]);
+    BBOX = { type: 'LineString', coordinates: ring };
+    globes.forEach(sizeGlobe);
+    new ResizeObserver(() => { globes.forEach(sizeGlobe); drawAxis(); requestDraw(false); }).observe($('s5pGlobes'));
+    await setDate(DATES.length - 1);
+    msg.textContent = '';
+  }
+  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); init(); } }, { rootMargin: '400px' });
+  io.observe(root);
 })();
 </script>
 </body>

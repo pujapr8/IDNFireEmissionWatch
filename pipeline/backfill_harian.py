@@ -329,8 +329,8 @@ def process_month(label, todo, results, prov_names, kab_names, ctx_layers,
     if kept:
         log.info("%s: arsip lama dipertahankan (satelitnya lebih lengkap): %s", label, fmt_days(kept))
     for s, ds in hollow.items():
-        log.warning("%s: data %s kosong pada %d hari (satelit lain mendeteksi api); "
-                    "tidak dihitung sebagai nol: %s", label, C.SATELLITES[s]["label"], len(ds), fmt_days(ds))
+        log.warning("%s: data %s kosong/bolong pada %d hari (jauh di bawah satelit lain); "
+                    "tidak dihitung di perbandingan: %s", label, C.SATELLITES[s]["label"], len(ds), fmt_days(ds))
     missing_ref = [d for d in no_ref if d not in hollow.get(C.REF_SATELLITE, [])]
     if missing_ref:
         log.warning("%s: FIRMS belum menyediakan data %s untuk %d hari: %s",

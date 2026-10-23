@@ -12,6 +12,7 @@ Dashboard publik pemantauan titik api kebakaran hutan dan lahan serta pergerakan
   - citra satelit harian VIIRS (asap terlihat langsung);
   - sebaran asap/aerosol dari indeks aerosol UV Sentinel-5P, produk yang sama dengan Copernicus Browser (perlu akun CDSE gratis, lihat langkah 3b);
   - estimasi PM2.5 per kota (kotak berwarna kategori ISPU).
+- **Asap dan karbon monoksida (bola dunia):** dua bola dunia berdampingan, indeks aerosol UV dan karbon monoksida (CO) Sentinel-5P, masing-masing rata-rata 3 hari (hari itu dan dua hari sebelumnya). Garis waktu mulai 1 Agustus 2026; bola bisa diseret, diperbesar, dan diputar per hari. Butuh kunci CDSE yang sama dengan lapisan aerosol.
 - **Mode Riwayat:** buka kondisi hari mana pun sejak 1 Januari 2026 (1, 7, atau 30 hari), geser slider atau tekan *Putar* untuk melihat perkembangannya hari demi hari. Lapisan aerosol Sentinel-5P ikut berganti sesuai tanggal. Tautannya bisa dibagikan, mis. `?tanggal=2026-09-15&durasi=7`.
 - Peringkat provinsi dan kabupaten/kota, tren 7 hari, dan **grafik per bulan**: jumlah titik api tiap bulan penuh dibanding rata-rata atau satu tahun pembanding (2015, 2019, 2023–2025). Klik batang bulan untuk membuka bulan itu di mode Riwayat. Tampilan kumulatif dan harian tetap tersedia.
 - Persentase titik api di lahan gambut/konsesi beserta peringkat konsesinya, bila Anda menambahkan datanya.
@@ -88,6 +89,7 @@ Sekali saja (atau untuk mengisi celah): pipeline/backfill_harian.py
 | `data/archive/raw/<tahun>/<tanggal>.csv.gz` | Semua deteksi nominal/high per hari, lengkap dengan provinsi, kabupaten, dan konteks |
 | `data/archive/harian/<tahun>/<tanggal>.json` | Titik api unik per hari (sesudah deduplikasi) untuk mode Riwayat, ±60 byte per titik |
 | `data/archive/harian/indeks.json` | Daftar tanggal yang tersedia beserta total dan jumlah satelitnya |
+| `data/archive/s5p/<aer\|co>/<tahun>/<tanggal>.png` | Bola dunia: indeks aerosol UV (abu-abu 1–255 = −2…6) dan CO (1–255 = 0…254 ppb) per hari WIB, grid lintang-bujur 65°–170° BT, 45° LS–30° LU, 0,125°. Dashboard merata-ratakan 3 hari dan mewarnainya. Indeksnya di `data/archive/s5p/indeks.json` |
 | `data/archive/aerosol_ai/<tahun>/<tanggal>.png` | Indeks aerosol Sentinel-5P per hari WIB. Gambar menyimpan **nilai** indeks (abu-abu 1–255 = 0,5–6,0), bukan warna; dashboard yang mewarnainya, jadi warna bisa diganti di `CONFIG.aerosolRamps` (`index.html`) tanpa mengunduh ulang |
 
 Di kedua CSV harian, kolom `nh` berisi jumlah titik nominal+tinggi dan kolom `h` jumlah titik tinggi saja. Baris `__semua__` adalah total nasional.
@@ -156,7 +158,8 @@ python -m http.server -d _site 8000      # buka http://localhost:8000
 - **Open-Meteo:** API gratis untuk **penggunaan non-komersial**. Bila diterbitkan oleh media komersial, periksa ketentuan dan pertimbangkan paket berbayar (cukup tambahkan parameter `apikey` di `pipeline/weather.py`).
 - **Peta dasar OpenFreeMap:** gratis tanpa kunci API; atribusi OpenFreeMap/OpenMapTiles/OpenStreetMap wajib tampil (sudah otomatis di pojok peta). Gaya bisa diganti di `CONFIG.basemap` (`index.html`), mis. `liberty` atau `bright`. Bila browser tidak mendukung WebGL, peta jatuh ke ubin OpenStreetMap biasa.
 - **Ukuran arsip:** arsip harian dan citra aerosol bertambah puluhan MB per tahun. Masih jauh di bawah batas GitHub Pages (1 GB), tetapi bila kelak terlalu besar, pindahkan tahun-tahun lama ke rilis GitHub atau penyimpanan lain.
-- **Copernicus Data Space:** isi mundur aerosol memakai satu permintaan per hari (±290 untuk Jan–Okt 2026), jauh di bawah kuota gratis 10.000 per bulan.
+- **Copernicus Data Space:** isi mundur aerosol memakai satu permintaan per hari (±290 untuk Jan–Okt 2026), jauh di bawah kuota gratis 10.000 per bulan. Bola dunia Sentinel-5P menambah 2 permintaan per hari (aerosol & CO) plus 2 unduhan ulang produk OFFL; isi mundur sejak 1 Agustus berjalan otomatis 40 hari per variabel per pembaruan (±166 permintaan, selesai dalam 3 pembaruan). Mulai garis waktu diatur di `S5P_START` (`pipeline/config.py`); untuk mengisi sekaligus: `python -m pipeline.s5p`.
+- **Ukuran arsip bola dunia:** ±0,4 MB per hari (dua variabel), ±13 MB per bulan.
 - **GitHub Actions:** jadwal bisa terlambat beberapa menit saat GitHub sibuk. Workflow terjadwal dinonaktifkan GitHub bila repo tidak aktif 60 hari; commit arsip harian otomatis menjaga repo tetap aktif.
 - **Batas wilayah:**
   - Hitungan dan peta sama-sama memakai 38 provinsi dari [denyherianto/indonesia-geojson-topojson-maps-with-38-provinces](https://github.com/denyherianto/indonesia-geojson-topojson-maps-with-38-provinces) (CC BY 4.0). Jadi titik yang tampil di dalam garis suatu provinsi di peta juga terhitung di provinsi itu.

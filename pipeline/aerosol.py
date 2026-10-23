@@ -93,7 +93,7 @@ class Client:
         }
         if timeliness:
             data_filter["timeliness"] = timeliness
-        body = {
+        return self.process({
             "input": {
                 # Dalam Web Mercator supaya pas ditumpuk di peta tanpa distorsi
                 "bounds": {"bbox": [x1, y1, x2, y2],
@@ -104,7 +104,10 @@ class Client:
             "output": {"width": width, "height": height,
                        "responses": [{"identifier": "default", "format": {"type": "image/png"}}]},
             "evalscript": EVALSCRIPT,
-        }
+        })
+
+    def process(self, body: dict) -> bytes:
+        """Kirim satu permintaan Process API; kembalikan PNG."""
         for attempt in range(3):
             r = requests.post(PROCESS_URL, json=body, timeout=180, headers=self._auth(force=attempt > 0))
             if r.status_code == 200 and r.content.startswith(b"\x89PNG"):

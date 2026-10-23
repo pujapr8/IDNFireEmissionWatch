@@ -31,23 +31,24 @@ def daily_counts(groups: pd.DataFrame, prov_names: list[str], dates) -> pd.DataF
     return pd.DataFrame(rows, columns=["date", "provinsi", "nh", "h"])
 
 
+def is_hollow(mine: int, other_max: int) -> bool:
+    """Data satelit dianggap kosong/bolong (lihat config.EMPTY_SAT_*)."""
+    if mine == 0 and other_max >= C.EMPTY_SAT_MIN_OTHERS:
+        return True
+    return other_max >= C.EMPTY_SAT_RATIO_MIN and mine < C.EMPTY_SAT_RATIO * other_max
+
+
 def empty_sats(groups: pd.DataFrame, d: date, sats) -> set[str]:
-    """Satelit (kunci C.SATELLITES) yang nol deteksi pada tanggal WIB d padahal
-    satelit lain mendeteksi >= C.EMPTY_SAT_MIN_OTHERS titik unik. Datanya kosong."""
+    """Satelit (kunci C.SATELLITES) yang datanya kosong/bolong pada tanggal WIB d,
+    dibanding satelit lain yang mendeteksi terbanyak hari itu."""
     sats = list(sats)
     if len(sats) < 2 or not len(groups):
         return set()
     g = groups.loc[groups["date_wib"] == d, "sats"].astype(int)
     if not len(g):
         return set()
-    out = set()
-    for s in sats:
-        bit = C.SATELLITES[s]["bit"]
-        mine = int((g & bit).astype(bool).sum())
-        others = int(((g & ~bit) > 0).sum())
-        if mine == 0 and others >= C.EMPTY_SAT_MIN_OTHERS:
-            out.add(s)
-    return out
+    n = {s: int((g & C.SATELLITES[s]["bit"]).astype(bool).sum()) for s in sats}
+    return {s for s in sats if is_hollow(n[s], max(n[o] for o in sats if o != s))}
 
 
 def drop_dates(prefix: str, dates) -> list[str]:

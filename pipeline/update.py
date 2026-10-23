@@ -23,6 +23,7 @@ from . import config as C
 from . import firms as F
 from . import aerosol as AE
 from . import harian as HR
+from . import s5p as S5
 from . import weather as W
 
 log = logging.getLogger("update")
@@ -169,7 +170,7 @@ def main(argv=None):
             gone = A.empty_sats(groups, d, ok_sats)
             day_sats[d] = [s for s in ok_sats if s not in gone]
             if gone:
-                log.warning("%s: data %s kosong (satelit lain mendeteksi api); tidak dihitung sebagai nol",
+                log.warning("%s: data %s kosong/bolong (jauh di bawah satelit lain); tidak dihitung di perbandingan",
                             d, ", ".join(C.SATELLITES[s]["label"] for s in sorted(gone)))
             # Jangan menimpa arsip yang satelitnya lebih lengkap dengan yang kurang lengkap
             had = HR.effective_sats(d)
@@ -217,6 +218,11 @@ def main(argv=None):
             n = min(len(missing), C.AEROSOL_CATCHUP_PER_RUN)
             log.info("aerosol: %d hari arsip belum punya citra; mengunduh %d terbaru", len(missing), n)
             changed += AE.archive_days(missing[:n])
+        # Bola dunia Sentinel-5P (aerosol & CO, rata-rata 3 hari): lengkapi bertahap
+        try:
+            changed += S5.update(now_wib)
+        except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
+            log.warning("arsip Sentinel-5P gagal: %s", e)
     HR.build_index()
     if changed:
         log.info("arsip berubah: %d file (%s%s)", len(changed), ", ".join(changed[:4]),

@@ -46,8 +46,8 @@ def day_sats(d: date) -> list[str] | None:
 
 def effective_sats(d: date) -> list[str] | None:
     """Satelit yang BENAR-BENAR punya data di arsip harian d. Satelit yang
-    tercatat tetapi nol titik padahal satelit lain mendeteksi
-    >= C.EMPTY_SAT_MIN_OTHERS titik dianggap kosong (bukan nol api).
+    tercatat tetapi datanya kosong/bolong dibanding satelit lain
+    (lihat config.EMPTY_SAT_*) tidak ikut dihitung.
     None bila arsip hari itu belum ada."""
     path = day_path(d)
     if not path.exists():
@@ -56,18 +56,17 @@ def effective_sats(d: date) -> list[str] | None:
     listed = obj.get("sats", [])
     si = obj["fields"].index("sats")
     by_label = {v["label"]: v["bit"] for v in C.SATELLITES.values()}
-    mine = {lbl: 0 for lbl in listed}
-    others = {lbl: 0 for lbl in listed}
+    n = {lbl: 0 for lbl in listed}
     for row in obj.get("rows", []):
         bits = int(row[si])
         for lbl in listed:
-            bit = by_label.get(lbl, 0)
-            if bits & bit:
-                mine[lbl] += 1
-            if bits & ~bit:
-                others[lbl] += 1
+            if bits & by_label.get(lbl, 0):
+                n[lbl] += 1
+    if len(listed) < 2:
+        return listed
+    from .archive import is_hollow
     return [lbl for lbl in listed
-            if not (mine[lbl] == 0 and others[lbl] >= C.EMPTY_SAT_MIN_OTHERS)]
+            if not is_hollow(n[lbl], max(n[o] for o in listed if o != lbl))]
 
 
 def write_day_json(d: date, groups: pd.DataFrame, sats: list[str], prov_names: list[str],
