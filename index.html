@@ -791,7 +791,7 @@ function prepHotspots(h) {
   const o = {
     n, lon: new Float64Array(n), lat: new Float64Array(n), day: new Int16Array(n),
     tf: new Int32Array(n), tl: new Int32Array(n), high: new Uint8Array(n), frp: new Float64Array(n),
-    sats: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
+    sats: new Uint8Array(n), hs: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
     ctx: new Int32Array(n), cell: new Float64Array(n),
     t0: new Date(h.t0_wib), t0Date: h.t0_date, nowMin: h.now_min, names: {}
   };
@@ -799,6 +799,8 @@ function prepHotspots(h) {
     o.lon[i] = r[0]; o.lat[i] = r[1]; o.day[i] = r[2]; o.tf[i] = r[3]; o.tl[i] = r[4];
     o.high[i] = r[5]; o.frp[i] = r[6] == null ? NaN : r[6]; o.sats[i] = r[7]; o.nd[i] = r[8];
     o.prov[i] = r[9]; o.kab[i] = r[10]; o.ctx[i] = r[11]; o.cell[i] = r[12];
+    // satelit yang menilai sel ini high; data lama tanpa kolom ini: anggap semua satelit yang melihatnya
+    o.hs[i] = r.length > 13 ? r[13] : (r[5] ? r[7] : 0);
   });
   for (const [id, v] of Object.entries(h.ctx_names || {})) o.names[id] = { names: v.names, groups: v.groups, idx: Int32Array.from(v.idx) };
   return o;
@@ -819,11 +821,15 @@ function areaName(area) {
   const p = S.provinces[+area.slice(2)];
   return p ? p.name : '';
 }
+/* Apakah baris ini "keyakinan tinggi" menurut filter satelit yang aktif?
+   1 satelit (S-NPP): high menurut S-NPP sendiri (sama dengan hitungan grafik bulanan/ref_daily).
+   Semua satelit: high menurut satelit mana pun. */
+function isHigh(i) { return state.sat === 'snpp' ? (H.hs[i] & SNPP_BIT) !== 0 : H.high[i] === 1; }
 function selectRows(fromMin, toMin) {
   const ps = areaProvSet(state.area), out = [];
   for (let i = 0; i < H.n; i++) {
     if (H.tl[i] < fromMin || H.tl[i] >= toMin) continue;
-    if (state.conf === 'h' && !H.high[i]) continue;
+    if (state.conf === 'h' && !isHigh(i)) continue;
     if (state.sat === 'snpp' && !(H.sats[i] & SNPP_BIT)) continue;
     if (ps && !ps.has(H.prov[i])) continue;
     out.push(i);
@@ -837,10 +843,10 @@ function dedup(idx) {
   for (const i of idx) {
     const c = H.cell[i];
     const a = m.get(c);
-    if (!a) { m.set(c, { i, tf: H.tf[i], tl: H.tl[i], high: H.high[i], frp: H.frp[i], sats: H.sats[i], nd: H.nd[i], days: 1 }); continue; }
+    if (!a) { m.set(c, { i, tf: H.tf[i], tl: H.tl[i], high: isHigh(i) ? 1 : 0, frp: H.frp[i], sats: H.sats[i], nd: H.nd[i], days: 1 }); continue; }
     if (!(H.frp[i] <= a.frp)) { a.i = i; a.frp = H.frp[i]; }
     a.tf = Math.min(a.tf, H.tf[i]); a.tl = Math.max(a.tl, H.tl[i]);
-    a.high = Math.max(a.high, H.high[i]); a.sats |= H.sats[i]; a.nd += H.nd[i]; a.days++;
+    a.high = Math.max(a.high, isHigh(i) ? 1 : 0); a.sats |= H.sats[i]; a.nd += H.nd[i]; a.days++;
   }
   return [...m.values()];
 }
@@ -1423,6 +1429,13 @@ function renderKpis(agg) {
   } else {
     foot.append(el('span', { text: 'Lokasi yang terdeteksi berulang dalam periode ini dihitung sekali' }));
   }
+  // Grafik bulanan & batang harian menjumlahkan hitungan per hari, jadi sel yang menyala
+  // beberapa hari terhitung berkali-kali. Tampilkan angka itu agar bisa dicocokkan.
+  const perDay = current.idx.length;
+  if (perDay !== total) {
+    foot.append(el('span', { style: 'flex-basis:100%;color:var(--muted)',
+      text: `Dijumlahkan per hari: ${fmt(perDay)} (cara hitung grafik bulanan)` }));
+  }
   $('#kHigh').textContent = fmt(high);
   $('#kHighFoot').textContent = state.conf === 'h' ? 'Filter "Tinggi saja" sedang aktif' : total ? `${PCT.format(high / total)} dari semua titik` : '—';
 
@@ -1522,7 +1535,7 @@ function renderCols() {
   const ps = areaProvSet(state.area);
   const counts = new Array(8).fill(0);
   for (let i = 0; i < H.n; i++) {
-    if (state.conf === 'h' && !H.high[i]) continue;
+    if (state.conf === 'h' && !isHigh(i)) continue;
     if (state.sat === 'snpp' && !(H.sats[i] & SNPP_BIT)) continue;
     if (ps && !ps.has(H.prov[i])) continue;
     counts[H.day[i]]++;
@@ -2263,7 +2276,7 @@ function buildHistH(dates, datas, W) {
   const o = {
     n: 0, lon: new Float64Array(n), lat: new Float64Array(n), day: new Int16Array(n),
     tf: new Int32Array(n), tl: new Int32Array(n), high: new Uint8Array(n), frp: new Float64Array(n),
-    sats: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
+    sats: new Uint8Array(n), hs: new Uint8Array(n), nd: new Int32Array(n), prov: new Int16Array(n), kab: new Int32Array(n),
     ctx: new Int32Array(n), cell: new Float64Array(n),
     t0: new Date(dates[0] + 'T00:00:00+07:00'), t0Date: dates[0], nowMin: span * 1440, names: {},
     prevLoaded: span > W && datas.slice(0, span - W).every(Boolean),
@@ -2282,11 +2295,13 @@ function buildHistH(dates, datas, W) {
     const pmap = d.prov_names.map(nm => (provIdx.has(nm) ? provIdx.get(nm) : -1));
     const kmap = d.kab_names.map(nm => (kabIdx.has(nm) ? kabIdx.get(nm) : -1));
     const bits = d.ctx_layers.map(id => bitOf.get(id) || 0);
+    const hsI = d.fields ? d.fields.indexOf('hsats') : -1;
     d.rows.forEach((r, i) => {
       const pv = pmap[r[8]];
       if (pv == null || pv < 0) return;
       o.lon[j] = r[0]; o.lat[j] = r[1]; o.day[j] = k; o.tf[j] = base + r[2]; o.tl[j] = base + r[3];
       o.high[j] = r[4]; o.frp[j] = r[5] == null ? NaN : r[5]; o.sats[j] = r[6]; o.nd[j] = r[7];
+      o.hs[j] = hsI >= 0 ? r[hsI] : (r[4] ? r[6] : 0);
       o.prov[j] = pv; o.kab[j] = r[9] >= 0 ? kmap[r[9]] : -1; o.cell[j] = r[11];
       let cb = 0;
       bits.forEach((bit, b) => { if (r[10] & (1 << b)) cb |= bit; });

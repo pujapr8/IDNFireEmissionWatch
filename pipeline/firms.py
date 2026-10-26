@@ -373,6 +373,7 @@ def dedup_daily(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
     d["cell"] = cell_key(d["latitude"], d["longitude"])
     d["is_h"] = (d["conf"] == "h").astype(int)
+    d["hbit"] = d["satbit"] * d["is_h"]  # bit satelit yang menilai deteksinya high
     d["frp_sort"] = d["frp"].fillna(-1)
     keys = ["date_wib", "cell"]
     d = d.sort_values(keys + ["frp_sort"], ascending=[True, True, False])
@@ -381,12 +382,16 @@ def dedup_daily(df: pd.DataFrame) -> pd.DataFrame:
     agg = pd.DataFrame({
         "h": g["is_h"].max(),
         "sats": g["satbit"].agg(lambda s: int(np.bitwise_or.reduce(s.to_numpy()))),
+        # satelit mana saja yang punya deteksi high di sel ini (h = salah satunya ada).
+        # Dipakai dashboard supaya "1 satelit + tinggi saja" berarti high menurut
+        # satelit itu sendiri, sama seperti hitungan ref_daily.
+        "hsats": g["hbit"].agg(lambda s: int(np.bitwise_or.reduce(s.to_numpy()))),
         "n_det": g.size(),
         "t_first": g["t_wib"].min(),
         "t_last": g["t_wib"].max(),
         "frp": g["frp"].max(),
     })
-    drop = ["is_h", "frp_sort", "conf", "satbit", "source", "t_utc", "t_wib", "frp"]
+    drop = ["is_h", "hbit", "frp_sort", "conf", "satbit", "source", "t_utc", "t_wib", "frp"]
     rep = rep.drop(columns=[c for c in drop if c in rep])
     out = agg.join(rep).reset_index()
     return out

@@ -18,7 +18,7 @@ DAY_DIR = C.ARCHIVE_DIR / "harian"
 AEROSOL_DIR = C.ARCHIVE_DIR / C.AEROSOL_ARCHIVE_DIRNAME
 OLD_AEROSOL_DIR = C.ARCHIVE_DIR / "aerosol"  # format lama (warna tertanam), dihapus otomatis
 FIELDS = ["lon", "lat", "t_first", "t_last", "high", "frp", "sats", "n_det",
-          "prov", "kab", "ctx", "cell"]
+          "prov", "kab", "ctx", "cell", "hsats"]
 
 
 def day_path(d: date):
@@ -93,6 +93,7 @@ def write_day_json(d: date, groups: pd.DataFrame, sats: list[str], prov_names: l
                 int((r.t_last - day0).total_seconds() // 60),
                 int(r.h), None if pd.isna(r.frp) else round(float(r.frp), 1),
                 int(r.sats), int(r.n_det), int(r.prov_i), kab, int(r.ctx), int(r.cell),
+                int(r.hsats),
             ])
             for l in ranked:
                 c = ctx_local[l["id"]]

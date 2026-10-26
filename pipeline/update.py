@@ -252,6 +252,7 @@ def main(argv=None):
             int((r.t_last - t0).total_seconds() // 60),
             int(r.h), None if pd.isna(r.frp) else round(float(r.frp), 1),
             int(r.sats), int(r.n_det), int(r.prov_i), int(r.kab_i), int(r.ctx), int(r.cell),
+            int(r.hsats),
         ])
         for l in ranked:
             nm = getattr(r, f"ctxname_{l['id']}") or ""
@@ -267,7 +268,7 @@ def main(argv=None):
                 ctx_names[l["id"]]["idx"].append(-1)
     A.dump_json({
         "fields": ["lon", "lat", "day", "t_first", "t_last", "high", "frp", "sats",
-                   "n_det", "prov", "kab", "ctx", "cell"],
+                   "n_det", "prov", "kab", "ctx", "cell", "hsats"],
         "t0_wib": t0.isoformat(),
         "t0_date": t0_date.isoformat(),
         "now_min": int((now_wib - t0).total_seconds() // 60),
