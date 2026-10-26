@@ -8,10 +8,14 @@ Sumbernya data/archive/raw/<tahun>/<tanggal>.csv.gz (satu baris per deteksi,
 lengkap dengan satelit & confidence). Deteksi dikelompokkan ke sel grid yang sama
 dengan firms.cell_key, lalu bit satelit yang berconfidence high digabung.
 
-Hari yang file mentahnya tidak ada TIDAK diubah; dashboard memakai perkiraan
-untuk hari itu (semua satelit yang melihat sel dianggap high bila baris itu high).
-Hari seperti itu dicantumkan di akhir laporan. Setelah selesai jalankan
-`python -m pipeline.update` supaya indeks dibangun ulang.
+Hari tanpa file mentah (mis. tahun penuh yang diisi dengan --tanpa-mentah):
+baris yang hanya dilihat satu satelit sudah pasti (hsats = sats bila high, selain
+itu 0). Bila SEMUA baris high di file itu hanya dilihat satu satelit, hsats ditulis
+persis. Bila ada baris high yang dilihat >1 satelit, satelit mana yang menilainya
+high tidak bisa diketahui tanpa data mentah: file itu TIDAK diubah (dashboard
+memakai perkiraan: semua satelit yang melihat sel dianggap high) dan dilaporkan
+per tahun. Untuk menyelesaikannya, unduh ulang tahun itu tanpa --tanpa-mentah.
+Setelah selesai jalankan `python -m pipeline.update` supaya indeks dibangun ulang.
 """
 from __future__ import annotations
 
@@ -36,8 +40,8 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     bit_of = {v["label"]: v["bit"] for v in C.SATELLITES.values()}
-    done = skipped = no_raw = mismatch_days = 0
-    no_raw_days = []
+    done = skipped = no_raw = mismatch_days = exact_no_raw = 0
+    amb_by_year: dict[str, list] = {}
     for f in sorted(HR.DAY_DIR.glob("*/*.json")):
         if f.name == "indeks.json":
             continue
@@ -47,8 +51,19 @@ def main(argv=None):
             continue
         raw = C.ARCHIVE_DIR / "raw" / f.parent.name / f"{f.stem}.csv.gz"
         if not raw.exists():
-            no_raw += 1
-            no_raw_days.append(f.stem)
+            fi = obj["fields"].index
+            ci, hi, si = fi("cell"), fi("high"), fi("sats")
+            amb = sum(1 for r in obj["rows"] if r[hi] and (r[si] & (r[si] - 1)))
+            if amb:
+                no_raw += 1
+                amb_by_year.setdefault(f.parent.name, []).append((f.stem, amb))
+                continue
+            for r in obj["rows"]:
+                r.append(int(r[si]) if r[hi] else 0)
+            obj["fields"].append("hsats")
+            if not args.cek:
+                f.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            exact_no_raw += 1
             continue
         det = pd.read_csv(raw, usecols=["lintang", "bujur", "satelit", "confidence"])
         det["cell"] = F.cell_key(det["lintang"], det["bujur"])
@@ -71,10 +86,13 @@ def main(argv=None):
         if not args.cek:
             f.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         done += 1
-    log.info("%s: %d hari diperbarui, %d sudah punya hsats, %d tanpa file mentah, %d hari dengan baris tidak cocok",
-             "CEK" if args.cek else "Selesai", done, skipped, no_raw, mismatch_days)
-    if no_raw_days:
-        log.warning("hari tanpa file mentah (tidak diubah): %s", ", ".join(no_raw_days))
+    log.info("%s: %d hari diperbarui dari file mentah, %d hari tanpa file mentah tapi pasti (satu satelit), "
+             "%d sudah punya hsats, %d hari tanpa file mentah dan ambigu (tidak diubah), %d hari dengan baris tidak cocok",
+             "CEK" if args.cek else "Selesai", done, exact_no_raw, skipped, no_raw, mismatch_days)
+    for year, items in sorted(amb_by_year.items()):
+        log.warning("%s: %d hari ambigu (baris high dilihat >1 satelit, %d baris); contoh %s s.d. %s. "
+                    "Unduh ulang tahun ini tanpa --tanpa-mentah bila perlu angka persis.",
+                    year, len(items), sum(n for _, n in items), items[0][0], items[-1][0])
 
 
 if __name__ == "__main__":
