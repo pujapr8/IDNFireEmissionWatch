@@ -293,6 +293,17 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
 .legend .gsq { width: 12px; height: 10px; display: inline-block; border-radius: 2px; }
 .trend-controls { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; font-size: 12.5px; color: var(--ink-2); }
 .trend-controls:empty { display: none; }
+.cbtn {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 999px; padding: 5px 12px 5px 10px; font-size: 12.5px; line-height: 1.3;
+}
+.cbtn:hover { color: var(--ink); }
+.cbtn .tick { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; box-sizing: border-box; }
+.cbtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.cbtn[aria-pressed="true"] .tick { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--surface); }
+.cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .trend-legend .lk .bx { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 .col.clickable { cursor: pointer; }
 
@@ -1360,6 +1371,13 @@ function renderLegend() {
   lg.hidden = !lg.childElementCount;
 }
 
+/* Ganti filter keyakinan dari tombol di legenda; segmen di bilah atas ikut disinkronkan */
+function setConf(v) {
+  state.conf = v;
+  document.querySelectorAll('#segConf button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  update();
+}
+
 /* =====================================================================
    RINGKASAN & GRAFIK
    ===================================================================== */
@@ -1671,6 +1689,15 @@ function joinYears(ys) {
 }
 
 function renderTrend() {
+  renderTrendInner();
+  const on = state.conf === 'h';
+  $('#trendControls').append(el('button', {
+    type: 'button', class: 'cbtn', 'aria-pressed': String(on),
+    title: 'Hitung hanya titik api dengan tingkat keyakinan tinggi',
+    onclick: () => setConf(on ? 'nh' : 'h')
+  }, el('i', { class: 'tick' }), 'Keyakinan tinggi saja'));
+}
+function renderTrendInner() {
   const box = $('#trend'); box.replaceChildren();
   const legend = $('#trendLegend'); legend.replaceChildren();
   const ytdT = $('#ytdTbl'); ytdT.replaceChildren();
