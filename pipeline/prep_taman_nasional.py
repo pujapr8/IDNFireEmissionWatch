@@ -33,6 +33,21 @@ SIMPLIFY_DEG = 0.0002  # ~20 m
 MIN_SHARE = 0.10       # provinsi dicantumkan bila memuat >= 10% luas taman
 # Pulau yang tidak tercakup batas provinsi dan provinsi terdekatnya keliru
 PROVINCE_OVERRIDE = {"Kepulauan Seribu": "DKI Jakarta"}
+# Nama di WDPA 2019 yang kini berbeda (penggabungan/ejaan resmi). Ditampilkan di
+# bawah nama dan ikut dicari di dashboard.
+ALIASES = {
+    "Manupeu Tanadaru": "kini bagian TN Matalawa",
+    "Laiwangi Wanggameti": "kini bagian TN Matalawa",
+    "Berbak": "kini bagian TN Berbak Sembilang",
+    "Sembilang": "kini bagian TN Berbak Sembilang",
+    "Betung Kerihun": "kini bagian TN Betung Kerihun dan Danau Sentarum",
+    "Danau Sentarum": "kini bagian TN Betung Kerihun dan Danau Sentarum",
+    "Gunung Tambora Selatan": "kini TN Tambora",
+    "Take Bone Rate": "nama resmi: Taka Bonerate",
+    "Teluk Cendrawasih": "nama resmi: Teluk Cenderawasih",
+    "Kepulauan Wakatobi": "nama resmi: Wakatobi",
+    "Ganda Dewata": "nama resmi: Gandang Dewata",
+}
 
 
 def load(src: Path) -> gpd.GeoDataFrame:
@@ -113,7 +128,8 @@ def main(argv=None):
     t = add_provinces(select(load(Path(argv[0]))))
     t["geometry"] = t.geometry.make_valid().simplify(SIMPLIFY_DEG, preserve_topology=True)
     t = t[~t.geometry.is_empty].sort_values("nama").reset_index(drop=True)
-    t = t[["nama", "provinsi", "luas_ha", "wdpaid", "tahun_penetapan", "geometry"]]
+    t["alias"] = t["nama"].map(ALIASES).fillna("")
+    t = t[["nama", "provinsi", "alias", "luas_ha", "wdpaid", "tahun_penetapan", "geometry"]]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     t["geometry"] = t.geometry.set_precision(1e-5)
     OUT.write_text(t.to_json(drop_id=True), encoding="utf-8")

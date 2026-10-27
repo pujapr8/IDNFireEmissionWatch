@@ -44,6 +44,21 @@ def day_sats(d: date) -> list[str] | None:
     return json.loads(head[i + 7:j + 1])
 
 
+def has_hsats(d: date) -> bool:
+    """Apakah arsip harian d sudah memuat kolom hsats (satelit yang menilai titik
+    berkeyakinan tinggi). Arsip lama tanpa kolom ini tidak bisa memisahkan
+    "keyakinan tinggi" per satelit. Cukup membaca awal file."""
+    path = day_path(d)
+    if not path.exists():
+        return False
+    with open(path, encoding="utf-8") as fh:
+        head = fh.read(1000)
+    i = head.find('"fields":[')
+    if i < 0:
+        return "hsats" in json.loads(path.read_text(encoding="utf-8")).get("fields", [])
+    return '"hsats"' in head[i:head.find("]", i)]
+
+
 def effective_sats(d: date) -> list[str] | None:
     """Satelit yang BENAR-BENAR punya data di arsip harian d. Satelit yang
     tercatat tetapi datanya kosong/bolong dibanding satelit lain
@@ -52,7 +67,11 @@ def effective_sats(d: date) -> list[str] | None:
     path = day_path(d)
     if not path.exists():
         return None
-    obj = json.loads(path.read_text(encoding="utf-8"))
+    return effective_sats_obj(json.loads(path.read_text(encoding="utf-8")))
+
+
+def effective_sats_obj(obj: dict) -> list[str]:
+    """Seperti effective_sats, untuk isi arsip harian yang sudah dibaca."""
     listed = obj.get("sats", [])
     si = obj["fields"].index("sats")
     by_label = {v["label"]: v["bit"] for v in C.SATELLITES.values()}

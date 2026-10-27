@@ -85,12 +85,16 @@ def av_covers(sat: str, d: date, av: dict) -> bool:
 def needs_fetch(d: date, av: dict) -> tuple[bool, list[str]]:
     """(perlu diunduh?, satelit yang baru bisa dilengkapi). Hari belum ada -> unduh.
     Hari sudah ada tetapi data satelit X tidak ada atau kosong (nol titik padahal
-    satelit lain mendeteksi api) dan FIRMS kini menyediakannya -> unduh ulang."""
+    satelit lain mendeteksi api) dan FIRMS kini menyediakannya -> unduh ulang.
+    Hari berformat lama (tanpa kolom hsats) -> unduh ulang supaya "keyakinan
+    tinggi" per satelit (mis. 1 satelit + keyakinan tinggi) bisa dihitung tepat."""
     have = HR.effective_sats(d)
     if have is None:
         return True, []
     fill = [s for s in C.SATELLITES
             if C.SATELLITES[s]["label"] not in have and av_covers(s, d, av)]
+    if not fill and not HR.has_hsats(d) and any(av_covers(s, d, av) for s in C.SATELLITES):
+        return True, []
     return bool(fill), fill
 
 
@@ -196,7 +200,7 @@ def main(argv=None):
         shutil.rmtree(HR.OLD_AEROSOL_DIR)
         log.info("citra aerosol format lama dihapus; diunduh ulang dalam format baru")
 
-    months, refill = [], {}
+    months, refill, upgrade = [], {}, []
     for m_first, m_last in (m for a, b in ranges for m in month_ranges(a, b)):
         days = [m_first + timedelta(days=i) for i in range((m_last - m_first).days + 1)]
         if args.ulang:
@@ -207,6 +211,8 @@ def main(argv=None):
                 need, fill = needs_fetch(d, av)
                 if need:
                     todo.append(d)
+                    if not fill and HR.day_path(d).exists():
+                        upgrade.append(d)
                 for s in fill:
                     refill.setdefault(s, []).append(d)
         months.append((m_first, days, todo))
@@ -214,6 +220,9 @@ def main(argv=None):
         log.warning("%d hari sudah diarsipkan tanpa data %s atau datanya kosong; "
                     "FIRMS kini menyediakannya, diambil ulang: %s",
                     len(ds), C.SATELLITES[s]["label"], fmt_days(ds))
+    if upgrade:
+        log.info("%d hari arsip berformat lama (belum memisahkan keyakinan tinggi per satelit); "
+                 "diambil ulang: %s", len(upgrade), fmt_days(upgrade))
     n_todo = sum(1 for m in months if m[2])
     if n_todo:
         log.info("%d bulan perlu diunduh, %d permintaan FIRMS serentak", n_todo, args.pekerja)

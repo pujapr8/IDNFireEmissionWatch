@@ -98,7 +98,7 @@ Di kedua CSV harian, kolom `nh` berisi jumlah titik nominal+tinggi dan kolom `h`
 
 - **Satelit:** hanya VIIRS 375 m; MODIS 1 km tidak dipakai supaya resolusi seragam.
 - **Deduplikasi:** deteksi di sel grid 0,0036° (~400 m) pada tanggal WIB yang sama dihitung satu titik. Tanpa ini, satu kebakaran bisa terhitung 2–3 kali karena ketiga satelit lewat berdekatan.
-- **Perbandingan antartahun:** hanya VIIRS S-NPP (tersedia sejak 2012, jadi 2015 ikut), karena NOAA-20/21 belum ada di tahun-tahun awal. Karena itu angkanya lebih kecil dari total multi-satelit.
+- **Perbandingan antartahun:** hanya VIIRS S-NPP (tersedia sejak 2012, jadi 2015 ikut), karena NOAA-20/21 belum ada di tahun-tahun awal. Karena itu angkanya lebih kecil dari total multi-satelit. Hari yang data S-NPP-nya kosong atau bolong (jauh di bawah satelit lain, `EMPTY_SAT_*`) tidak dihitung, jadi bulannya tampil "belum penuh"; aturan ini juga diterapkan ke arsip yang ditulis sebelum aturannya ada.
 - **Finalisasi harian:** satu tanggal masuk arsip pukul 09.00 WIB keesokan harinya, memberi waktu untuk keterlambatan data NRT.
 - **Hitungan per bulan vs. periode:** grafik per bulan menjumlahkan titik api harian, jadi lokasi yang menyala lima hari terhitung lima kali (cara yang lazim dipakai untuk rekap bulanan). Angka besar di mode Riwayat 7/30 hari menghitung tiap lokasi sekali dalam periode itu, jadi lebih kecil dari jumlah hariannya.
 - **Peta 30 hari:** lebih dari 7 hari, titik digabung menjadi sel kepadatan 0,1° (±11 km) supaya peta tetap terbaca dan ringan.
@@ -141,8 +141,12 @@ python -m pipeline.prep_taman_nasional SHP_Kawasan_Lindung_Indonesia_May2019.zip
 
 - Diambil semua kawasan berpenetapan taman nasional (54), kecuali taman nasional laut murni karena titik api hanya ada di darat. Wasur (Papua Selatan) ikut dimasukkan walau di WDPA 2019 hanya tercatat sebagai situs Ramsar, karena batasnya sama dengan taman nasionalnya.
 - Dua catatan ganda dibuang: "Bantimurung" (berada di dalam Bantimurung Bulusaraung) dan "Gunung Boliyohuto" (di WDPA 2019 batasnya sama dengan Gunung Gede - Pangrango).
-- Nama mengikuti WDPA 2019, jadi taman nasional hasil penggabungan atau penetapan setelah 2019 tercatat dengan nama lamanya (mis. Manupeu Tanadaru dan Laiwangi Wanggameti, kini TN Matalawa; Berbak dan Sembilang, kini TN Berbak Sembilang). Untuk memperbarui, ganti file WDPA lalu jalankan perintah di atas.
+- Nama mengikuti WDPA 2019, jadi taman nasional hasil penggabungan atau penetapan setelah 2019 tercatat dengan nama lamanya (mis. Manupeu Tanadaru dan Laiwangi Wanggameti, kini TN Matalawa; Berbak dan Sembilang, kini TN Berbak Sembilang). Nama barunya dicatat di kolom `alias` (`ALIASES` di `pipeline/prep_taman_nasional.py`), tampil di bawah nama dan ikut dicari di dashboard. Untuk memperbarui, ganti file WDPA lalu jalankan perintah di atas.
 - Kolom provinsi diisi provinsi yang memuat minimal 10% luas taman.
+- Di kartu "Di mana titik api berada", daftar taman nasional bisa dicari (nama, nama baru, atau provinsi) dan dibuka seluruhnya, termasuk taman tanpa titik api.
+- Riwayat per taman nasional: tombol di kolom "Riwayat" (atau pilihan "Wilayah grafik" di kartu "Dibanding bulan-bulan sebelumnya") menampilkan grafik perbandingan antartahun untuk satu taman, dalam keempat tampilan (per bulan, tanggal sama, kumulatif, harian). Klik bulan untuk membukanya di peta Riwayat dengan batas taman disorot. Tautan langsung: `?kawasan=Sebangau`.
+- Datanya `data/archive/harian/riwayat_taman_nasional.json`, dibuat `pipeline/riwayat_konteks.py` dari arsip harian setiap pembaruan (hanya hari yang berubah yang dibaca ulang; hitung ulang semua: `python -m pipeline.riwayat_konteks --ulang`). Isinya per hari per taman: titik api semua satelit dan titik yang terdeteksi S-NPP (nominal + tinggi, tinggi saja). Perbandingan antartahun memakai S-NPP; hari yang data S-NPP-nya kosong/bolong tidak dihitung.
+- Arsip 2019 dan 2023 yang diunduh sebelum ada kolom `hsats` belum bisa memisahkan "keyakinan tinggi" per satelit, jadi grafik taman untuk "Keyakinan tinggi saja" belum menampilkan tahun itu. Jalankan workflow **Unduh lokasi titik api tahun lalu** sekali lagi: hari berformat lama diunduh ulang otomatis.
 - WDPA bebas dipakai untuk keperluan nonkomersial dengan menyebut sumbernya (UNEP-WCMC & IUCN, Protected Planet); atribusinya sudah tampil di bagian Sumber dashboard.
 
 ---

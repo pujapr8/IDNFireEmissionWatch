@@ -25,6 +25,7 @@ from . import aerosol as AE
 from . import harian as HR
 from . import s5p as S5
 from . import retag_konteks as RK
+from . import riwayat_konteks as RW
 from . import weather as W
 
 log = logging.getLogger("update")
@@ -230,6 +231,18 @@ def main(argv=None):
         except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
             log.warning("arsip Sentinel-5P gagal: %s", e)
     HR.build_index()
+    # Riwayat harian per kawasan bernama (mis. tiap taman nasional) untuk dashboard
+    try:
+        changed += RW.run(ctx_layers)
+        # Hari yang data S-NPP-nya kosong/bolong menurut arsip harian tidak dihitung di
+        # perbandingan antartahun, termasuk hari yang diarsipkan sebelum aturan ini ada
+        dropped = A.drop_dates("ref_daily", RW.no_ref_days())
+        if dropped:
+            log.info("hitungan %s dihapus untuk hari yang datanya kosong/bolong (%s)",
+                     C.REF_LABEL, ", ".join(dropped))
+        changed += dropped
+    except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
+        log.warning("riwayat per kawasan gagal: %s", e)
     if changed:
         log.info("arsip berubah: %d file (%s%s)", len(changed), ", ".join(changed[:4]),
                  ", ..." if len(changed) > 4 else "")
@@ -288,7 +301,10 @@ def main(argv=None):
         gg = l["gdf"]
         simp = gg.to_crs(3395)
         simp["geometry"] = simp.geometry.simplify(l.get("simplify_m", 100))
-        simp = simp.to_crs(4326)[["ctx_name", "ctx_group", "geometry"]]
+        simp = simp.to_crs(4326)
+        af = l.get("alias_field")
+        simp["ctx_alias"] = simp[af].fillna("").astype(str) if af and af in simp else ""
+        simp = simp[["ctx_name", "ctx_group", "ctx_alias", "geometry"]]
         round_geom_geojson(simp, out / fname)
         size_mb = (out / fname).stat().st_size / 1e6
         if size_mb > 15:
@@ -298,7 +314,10 @@ def main(argv=None):
         ctx_meta.append({"id": l["id"], "label": l["label"], "color": l.get("color", "#888"),
                          "bit": 1 << i, "ranked": l["ranked"], "file": fname,
                          "group_label": l.get("group_label"), "source": l.get("source"),
-                         "source_url": l.get("source_url")})
+                         "source_url": l.get("source_url"),
+                         # riwayat harian per kawasan (relatif terhadap data/archive/)
+                         "history": f"harian/{RW.PREFIX}{l['id']}.json"
+                                    if l["ranked"] and RW.out_path(l["id"]).exists() else None})
 
     prov_disp = provinces.copy()
     prov_disp = prov_disp.rename(columns={"prov_i": "i", "prov_name": "name"})

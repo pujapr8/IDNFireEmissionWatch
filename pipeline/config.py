@@ -153,6 +153,7 @@ CONTEXT_LAYERS = [
         "name_field": "nama",
         "group_field": "provinsi",
         "group_label": "Provinsi",
+        "alias_field": "alias",  # nama lain/nama baru: ditampilkan & ikut dicari
         "color": "#22a38f",
         "simplify_m": 120,
         "source": "World Database on Protected Areas (UNEP-WCMC & IUCN), Mei 2019",
