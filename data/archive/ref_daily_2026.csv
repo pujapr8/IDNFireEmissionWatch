@@ -1142,9 +1142,6 @@ date,provinsi,nh,h
 2026-03-09,Sulawesi Tengah,5,0
 2026-03-09,Sumatera Utara,10,0
 2026-03-09,__semua__,88,3
-2026-03-10,Sulawesi Selatan,11,0
-2026-03-10,Sulawesi Tenggara,9,0
-2026-03-10,__semua__,20,0
 2026-03-13,Aceh,1,0
 2026-03-13,Jambi,4,0
 2026-03-13,Jawa Barat,1,0
@@ -2230,13 +2227,6 @@ date,provinsi,nh,h
 2026-04-27,Sumatera Selatan,17,1
 2026-04-27,Sumatera Utara,1,0
 2026-04-27,__semua__,204,3
-2026-04-28,Jambi,7,0
-2026-04-28,Jawa Tengah,1,0
-2026-04-28,Kalimantan Selatan,5,0
-2026-04-28,Kepulauan Riau,1,0
-2026-04-28,Riau,7,0
-2026-04-28,Sumatera Selatan,5,0
-2026-04-28,__semua__,26,0
 2026-05-01,Banten,1,0
 2026-05-01,Gorontalo,1,0
 2026-05-01,Jambi,1,0
@@ -2907,22 +2897,6 @@ date,provinsi,nh,h
 2026-05-31,Sumatera Selatan,72,0
 2026-05-31,Sumatera Utara,5,0
 2026-05-31,__semua__,366,5
-2026-06-01,Aceh,6,0
-2026-06-01,Jambi,1,0
-2026-06-01,Jawa Barat,1,0
-2026-06-01,Jawa Tengah,4,0
-2026-06-01,Jawa Timur,10,0
-2026-06-01,Kalimantan Barat,1,0
-2026-06-01,Kalimantan Selatan,7,0
-2026-06-01,Kalimantan Timur,10,0
-2026-06-01,Kalimantan Utara,1,0
-2026-06-01,Lampung,1,0
-2026-06-01,Maluku,2,0
-2026-06-01,Maluku Utara,1,0
-2026-06-01,Nusa Tenggara Barat,9,0
-2026-06-01,Riau,3,0
-2026-06-01,Sumatera Selatan,7,0
-2026-06-01,__semua__,64,0
 2026-06-03,Aceh,30,1
 2026-06-03,Bengkulu,1,0
 2026-06-03,Jawa Tengah,1,0
@@ -4579,34 +4553,6 @@ date,provinsi,nh,h
 2026-08-02,Sumatera Selatan,85,0
 2026-08-02,Sumatera Utara,5,0
 2026-08-02,__semua__,1401,88
-2026-08-03,Aceh,1,0
-2026-08-03,Banten,5,0
-2026-08-03,Jambi,4,0
-2026-08-03,Jawa Barat,6,0
-2026-08-03,Jawa Tengah,14,0
-2026-08-03,Jawa Timur,16,0
-2026-08-03,Kalimantan Barat,93,4
-2026-08-03,Kalimantan Selatan,40,0
-2026-08-03,Kalimantan Tengah,53,0
-2026-08-03,Kalimantan Timur,28,0
-2026-08-03,Kalimantan Utara,1,0
-2026-08-03,Kepulauan Bangka Belitung,4,0
-2026-08-03,Kepulauan Riau,2,0
-2026-08-03,Lampung,3,0
-2026-08-03,Nusa Tenggara Barat,3,0
-2026-08-03,Riau,15,0
-2026-08-03,Sulawesi Selatan,14,1
-2026-08-03,Sulawesi Tengah,17,0
-2026-08-03,Sulawesi Tenggara,6,0
-2026-08-03,Sulawesi Utara,8,0
-2026-08-03,Sumatera Selatan,30,0
-2026-08-03,__semua__,363,5
-2026-08-04,Papua,1,0
-2026-08-04,Papua Barat,10,0
-2026-08-04,Papua Pegunungan,7,0
-2026-08-04,Papua Selatan,78,0
-2026-08-04,Papua Tengah,1,0
-2026-08-04,__semua__,97,0
 2026-08-05,Aceh,2,0
 2026-08-05,Banten,8,0
 2026-08-05,Bengkulu,5,0
@@ -7025,11 +6971,6 @@ date,provinsi,nh,h
 2026-10-12,Sulawesi Utara,13,0
 2026-10-12,Sumatera Selatan,679,72
 2026-10-12,__semua__,8836,436
-2026-10-13,Papua,2,0
-2026-10-13,Papua Pegunungan,19,1
-2026-10-13,Papua Selatan,74,1
-2026-10-13,Papua Tengah,13,0
-2026-10-13,__semua__,108,2
 2026-10-14,Aceh,1,0
 2026-10-14,Bali,1,0
 2026-10-14,Banten,4,0
