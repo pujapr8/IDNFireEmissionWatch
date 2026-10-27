@@ -112,7 +112,11 @@ PROVINCE_TO_REGION = {p: r for r, ps in REGIONS.items() for p in ps}
 # - name_field : kolom nama untuk peringkat (None = hanya hitung persentase)
 # - group_field: kolom induk/grup usaha (opsional, ikut ditampilkan)
 # - simplify_m : toleransi penyederhanaan untuk file tampilan di peta
+# - group_label: judul kolom grup di tabel peringkat (default "Grup")
+# - source, source_url: atribusi data, ditampilkan di bagian Sumber dashboard
 # Lapisan yang filenya tidak ada akan dilewati tanpa error.
+# Bila daftar lapisan atau isi filenya berubah, pembaruan berikutnya menandai
+# ulang seluruh arsip harian (pipeline.retag_konteks), tanpa unduh ulang FIRMS.
 CONTEXT_LAYERS = [
     {
         "id": "gambut",
@@ -140,6 +144,19 @@ CONTEXT_LAYERS = [
         "group_field": "grup",
         "color": "#4f9d69",
         "simplify_m": 100,
+    },
+    {
+        # Dibuat dari WDPA Indonesia: python -m pipeline.prep_taman_nasional <zip WDPA>
+        "id": "taman_nasional",
+        "label": "Taman nasional",
+        "path": "context/taman_nasional.geojson",
+        "name_field": "nama",
+        "group_field": "provinsi",
+        "group_label": "Provinsi",
+        "color": "#22a38f",
+        "simplify_m": 120,
+        "source": "World Database on Protected Areas (UNEP-WCMC & IUCN), Mei 2019",
+        "source_url": "https://www.protectedplanet.net/country/IDN",
     },
 ]
 

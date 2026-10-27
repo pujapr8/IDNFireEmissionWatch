@@ -24,6 +24,7 @@ from . import firms as F
 from . import aerosol as AE
 from . import harian as HR
 from . import s5p as S5
+from . import retag_konteks as RK
 from . import weather as W
 
 log = logging.getLogger("update")
@@ -157,6 +158,11 @@ def main(argv=None):
     # ---------------- arsip ----------------
     final_dates = finalizable_dates(now_wib, today_utc)
     changed = []
+    # Lapisan konteks baru/berubah (mis. taman nasional): tandai ulang arsip lama sekali
+    try:
+        changed += RK.run(ctx_layers)
+    except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
+        log.warning("penandaan ulang lapisan konteks gagal: %s", e)
     ok_sats = [F.sat_base(s["key"]) for s in status if s["ok"]]
     failed = [s["label"] for s in status if not s["ok"]]
     if final_dates and failed:
@@ -290,7 +296,9 @@ def main(argv=None):
             (out / fname).unlink()
             fname = None
         ctx_meta.append({"id": l["id"], "label": l["label"], "color": l.get("color", "#888"),
-                         "bit": 1 << i, "ranked": l["ranked"], "file": fname})
+                         "bit": 1 << i, "ranked": l["ranked"], "file": fname,
+                         "group_label": l.get("group_label"), "source": l.get("source"),
+                         "source_url": l.get("source_url")})
 
     prov_disp = provinces.copy()
     prov_disp = prov_disp.rename(columns={"prov_i": "i", "prov_name": "name"})

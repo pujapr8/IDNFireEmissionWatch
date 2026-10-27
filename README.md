@@ -83,7 +83,7 @@ Sekali saja (atau untuk mengisi celah): pipeline/backfill_harian.py
 | `pipeline/fetch_boundaries.py` | Unduh batas kabupaten/kota (geoBoundaries) |
 | `boundaries/provinsi.geojson` | Batas 38 provinsi: basis hitungan **dan** peta (CC BY 4.0). Bisa diganti file 38 provinsi lain asal ada kolom nama (`PROVINSI`, `name`, atau `nama`) |
 | `boundaries/daratan_indonesia.geojson`, `negara_tetangga.geojson` | Penyaring Natural Earth: buang titik di negara tetangga dan laut lepas (dibuat dengan `pipeline/prepare_boundaries_ne.py`) |
-| `context/` | Lapisan konteks opsional (gambut, konsesi) |
+| `context/` | Lapisan konteks: `taman_nasional.geojson` (54 taman nasional, WDPA 2019) dan opsional gambut/konsesi |
 | `data/archive/daily_<tahun>.csv` | Titik api harian per provinsi, multi-satelit |
 | `data/archive/ref_daily_<tahun>.csv` | Sama, satu satelit (untuk perbandingan antartahun) |
 | `data/archive/raw/<tahun>/<tanggal>.csv.gz` | Semua deteksi nominal/high per hari, lengkap dengan provinsi, kabupaten, dan konteks |
@@ -128,6 +128,22 @@ Hasilnya:
 - popup titik api menyebut nama konsesinya;
 - muncul kartu "Di mana titik api berada" berisi persentase dan tabel konsesi dengan titik api terbanyak;
 - CSV unduhan dan arsip harian mendapat kolom tambahan.
+
+Arsip lama tidak perlu diunduh ulang: setiap kali daftar lapisan atau isi filenya berubah, pembaruan berikutnya menandai ulang seluruh arsip harian dan deteksi mentah (`pipeline/retag_konteks.py`, beberapa detik sampai beberapa menit). Bisa juga dijalankan manual: `python -m pipeline.retag_konteks --paksa`.
+
+### Taman nasional
+
+`context/taman_nasional.geojson` dibuat dari World Database on Protected Areas (WDPA) Indonesia, Mei 2019:
+
+```bash
+python -m pipeline.prep_taman_nasional SHP_Kawasan_Lindung_Indonesia_May2019.zip
+```
+
+- Diambil semua kawasan berpenetapan taman nasional (54), kecuali taman nasional laut murni karena titik api hanya ada di darat. Wasur (Papua Selatan) ikut dimasukkan walau di WDPA 2019 hanya tercatat sebagai situs Ramsar, karena batasnya sama dengan taman nasionalnya.
+- Dua catatan ganda dibuang: "Bantimurung" (berada di dalam Bantimurung Bulusaraung) dan "Gunung Boliyohuto" (di WDPA 2019 batasnya sama dengan Gunung Gede - Pangrango).
+- Nama mengikuti WDPA 2019, jadi taman nasional hasil penggabungan atau penetapan setelah 2019 tercatat dengan nama lamanya (mis. Manupeu Tanadaru dan Laiwangi Wanggameti, kini TN Matalawa; Berbak dan Sembilang, kini TN Berbak Sembilang). Untuk memperbarui, ganti file WDPA lalu jalankan perintah di atas.
+- Kolom provinsi diisi provinsi yang memuat minimal 10% luas taman.
+- WDPA bebas dipakai untuk keperluan nonkomersial dengan menyebut sumbernya (UNEP-WCMC & IUCN, Protected Planet); atribusinya sudah tampil di bagian Sumber dashboard.
 
 ---
 

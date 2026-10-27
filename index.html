@@ -331,6 +331,12 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
 }
 @media (prefers-reduced-motion: reduce) { .tt { transition: none; } }
 
+/* ---------- kawasan (taman nasional) ---------- */
+.ctx-row { cursor: pointer; }
+.ctx-row:hover td, .ctx-row:focus-visible td { background: var(--surface-2); }
+.ctx-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.leaflet-tooltip.ctx-label { font-weight: 650; font-size: 13px; }
+
 /* ---------- bola dunia Sentinel-5P (aerosol & CO, rata-rata 3 hari) ---------- */
 /* Panel sengaja selalu gelap (gaya penampil satelit) di tema terang maupun gelap. */
 .s5p {
@@ -1083,8 +1089,13 @@ function initContext() {
   for (const c of S.context_layers) {
     if (!c.file || !CTX_GJ[c.id]) continue;
     ctxLayers[c.id] = L.geoJSON(CTX_GJ[c.id], {
-      pane: 'ctxPane', interactive: false,
-      style: { color: c.color, weight: 1, opacity: 0.9, fillColor: c.color, fillOpacity: 0.16 }
+      pane: 'ctxPane', interactive: !!c.ranked,
+      style: { color: c.color, weight: 1, opacity: 0.9, fillColor: c.color, fillOpacity: 0.16 },
+      // Kawasan bernama (mis. taman nasional): arahkan kursor untuk melihat namanya
+      onEachFeature: c.ranked ? (f, layer) => {
+        const p = f.properties || {};
+        if (p.ctx_name) layer.bindTooltip(p.ctx_group ? `<b>${p.ctx_name}</b><br>${p.ctx_group}` : `<b>${p.ctx_name}</b>`, { sticky: true, direction: 'top', opacity: 0.95 });
+      } : undefined
     });
     state.ctx[c.id] = false;
   }
@@ -1616,6 +1627,33 @@ function renderKab(agg) {
   more.textContent = `Tampilkan lebih banyak (${items.length - Math.min(items.length, state.kabN)} lagi)`;
 }
 
+/* Perbesar peta ke satu kawasan (mis. taman nasional) dari tabel peringkat */
+let ctxFocus = null, ctxTip = null;
+function focusCtx(c, name) {
+  const lay = ctxLayers[c.id], gj = CTX_GJ[c.id];
+  if (!lay || !gj) return;
+  if (!state.ctx[c.id]) {
+    state.ctx[c.id] = true; lay.addTo(map);
+    const cb = document.getElementById('lay-ctx-' + c.id); if (cb) cb.checked = true;
+    renderLegend();
+  }
+  const feats = (gj.features || []).filter(f => f.properties && f.properties.ctx_name === name);
+  if (!feats.length) return;
+  if (ctxFocus) map.removeLayer(ctxFocus);
+  if (ctxTip) map.closeTooltip(ctxTip);
+  ctxFocus = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+    pane: 'ctxPane', interactive: false,
+    style: { color: c.color, weight: 3, opacity: 1, fillColor: c.color, fillOpacity: 0.06 }
+  }).addTo(map);
+  const b = ctxFocus.getBounds();
+  map.fitBounds(b, { padding: [40, 40], maxZoom: 11 });
+  ctxTip = L.tooltip({ permanent: true, direction: 'top', className: 'ctx-label', offset: [0, -4] })
+    .setLatLng([b.getNorth(), b.getCenter().lng]).setContent(`${c.label} ${name}`);
+  map.openTooltip(ctxTip);
+  const mc = document.querySelector('.map-card');
+  if (mc) mc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function renderCtx(agg) {
   const card = $('#cardCtx'), body = $('#ctxBody');
   const layers = S.context_layers;
@@ -1638,11 +1676,21 @@ function renderCtx(agg) {
     const nm = H.names[c.id];
     const m = countBy(agg.filter(a => nm.idx[a.i] >= 0), a => nm.idx[a.i]);
     const items = [...m].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const canFocus = !!(ctxLayers[c.id] && CTX_GJ[c.id]);
     body.append(el('h3', { style: 'font-size:13.5px;margin:18px 0 4px', text: `${c.label}: titik api terbanyak` }));
+    if (canFocus && items.length) body.append(el('p', { class: 'sub', style: 'margin:0 0 6px', text: 'Klik nama untuk melihatnya di peta.' }));
     const t = el('table', { class: 'tbl' });
-    t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Nama' }), el('th', { text: 'Grup' }), el('th', { class: 'r', text: 'Titik api' }))));
+    t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Nama' }), el('th', { text: c.group_label || 'Grup' }), el('th', { class: 'r', text: 'Titik api' }))));
     const tb = el('tbody');
-    items.forEach(([k, v], n) => tb.append(el('tr', null, el('td', { class: 'rank', text: n + 1 }), el('td', { text: nm.names[k] }), el('td', { class: 'grp', text: nm.groups[k] || '–' }), el('td', { class: 'r', text: fmt(v) }))));
+    items.forEach(([k, v], n) => {
+      const tr = el('tr', canFocus ? { class: 'ctx-row', tabindex: '0', title: 'Lihat di peta' } : null,
+        el('td', { class: 'rank', text: n + 1 }), el('td', { text: nm.names[k] }), el('td', { class: 'grp', text: nm.groups[k] || '–' }), el('td', { class: 'r', text: fmt(v) }));
+      if (canFocus) {
+        tr.addEventListener('click', () => focusCtx(c, nm.names[k]));
+        tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); focusCtx(c, nm.names[k]); } });
+      }
+      tb.append(tr);
+    });
     if (!items.length) tb.append(el('tr', null, el('td', { colspan: 4, class: 'muted', text: 'Tidak ada titik api di kawasan ini.' })));
     t.append(tb);
     body.append(el('div', { class: 'tbl-wrap' }, t));
@@ -2216,6 +2264,7 @@ function renderMethod() {
         el('li', null, 'Aerosol: Copernicus Sentinel-5P melalui ', el('a', { href: 'https://dataspace.copernicus.eu/', text: 'Copernicus Data Space Ecosystem' }), '; mengandung data Copernicus Sentinel yang dimodifikasi.'),
         el('li', null, 'Angin & PM2.5: ', el('a', { href: 'https://open-meteo.com/', text: 'Open-Meteo' }), ' (model cuaca global; CAMS/Copernicus).'),
         el('li', null, 'Batas 38 provinsi: ', el('a', { href: 'https://github.com/denyherianto/indonesia-geojson-topojson-maps-with-38-provinces', text: 'Indonesia GeoJSON 38 Provinces' }), ' (CC BY 4.0); garis pantai dan batas negara: ', el('a', { href: 'https://www.naturalearthdata.com/', text: 'Natural Earth' }), (S.kabupaten.length ? '; batas kabupaten/kota: geoBoundaries.' : '.')),
+        ...S.context_layers.filter(c => c.source).map(c => el('li', null, `${c.label}: `, c.source_url ? el('a', { href: c.source_url, text: c.source }) : c.source, '.')),
         el('li', null, 'Peta dasar: ', el('a', { href: 'https://openfreemap.org/', text: 'OpenFreeMap' }), ', © OpenMapTiles, data © OpenStreetMap.'))),
     ...sec('Unduh data',
       el('ul', null,
