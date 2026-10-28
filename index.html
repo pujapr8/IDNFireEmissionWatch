@@ -748,6 +748,7 @@ const state = {
   sat: 'all', mode: 'live', histEnd: null, histDays: 1, histRange: false, trendBasis: null, trendCmp: 'set', cmpPreset: null, cmpFrom: null, cmpTo: null
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
+let BUL = null;  // lokasi titik api unik per bulan (data/archive/harian/bulanan.json)
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
 const MAX_RANGE = 90;  // rentang Riwayat maksimum (hari); tiap hari = satu file arsip
 let INDEX_DAYS = [], INDEX_YEARS = [], INDEX_YB = {};  // tanggal tersedia, tahun, batas per tahun
@@ -1455,12 +1456,13 @@ function renderKpis(agg) {
   } else {
     foot.append(el('span', { text: 'Lokasi yang terdeteksi berulang dalam periode ini dihitung sekali' }));
   }
-  // Grafik bulanan & batang harian menjumlahkan hitungan per hari, jadi sel yang menyala
+  // Grafik Tanggal sama, Kumulatif & Harian menjumlahkan hitungan per hari, jadi sel yang menyala
   // beberapa hari terhitung berkali-kali. Tampilkan angka itu agar bisa dicocokkan.
+  // (Grafik per bulan memakai lokasi unik, sama dengan angka besar di atas.)
   const perDay = current.idx.length;
   if (perDay !== total) {
     foot.append(el('span', { style: 'flex-basis:100%;color:var(--muted)',
-      text: `Dijumlahkan per hari: ${fmt(perDay)} (cara hitung grafik bulanan)` }));
+      text: `Dijumlahkan per hari: ${fmt(perDay)} (cara hitung grafik Tanggal sama, Kumulatif, dan Harian)` }));
   }
   $('#kHigh').textContent = fmt(high);
   $('#kHighFoot').textContent = state.conf === 'h' ? 'Filter "Tinggi saja" sedang aktif' : total ? `${PCT.format(high / total)} dari semua titik` : '—';
@@ -1955,7 +1957,7 @@ function renderTrend() {
     onclick: () => setConf(on ? 'nh' : 'h')
   }, el('i', { class: 'tick' }), 'Keyakinan tinggi saja'));
   // Riwayat kawasan: tahun yang arsipnya belum memisahkan keyakinan tinggi per satelit
-  if (TY && TY.park && on && TY.h_gap.length && !(state.trend === 'bulan' && state.trendBasis === 'multi'))
+  if (TY && TY.park && on && TY.h_gap.length && state.trend !== 'bulan')
     $('#trendNote').textContent += ` Data keyakinan tinggi satu satelit untuk ${joinYears(TY.h_gap)} belum tersedia.`;
 }
 function renderTrendInner() {
@@ -2115,6 +2117,37 @@ function renderTrendInner() {
 /* ---------------- titik api per bulan ---------------- */
 const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/* Lokasi titik api unik per bulan (tiap lokasi dihitung sekali per bulan), dari bulanan.json:
+   angka yang sama dengan bagian atas halaman saat bulan itu dibuka di mode Riwayat.
+   b = 'ref' (1 satelit S-NPP) atau 'all' (semua satelit). null = tidak tersedia. */
+function uniqMonthly(b, key, year) {
+  if (!BUL) return null;
+  const out = new Array(12).fill(null);
+  for (let k = 0; k < 12; k++) {
+    const m = BUL.months[`${year}-${String(k + 1).padStart(2, '0')}`];
+    if (!m) continue;
+    if (TY && TY.park) {
+      const c = m.ctx && m.ctx[TY.park_id], arr = c && c[b] && c[b][key];
+      if (!arr) continue;
+      const i = BUL.ctxIdx[TY.park_id] ? BUL.ctxIdx[TY.park_id].get(TY.park) : undefined;
+      out[k] = i == null ? 0 : arr[i];
+    } else {
+      const arr = m[b] && m[b][key];
+      if (!arr) continue;
+      const a = state.area, name = a === 'all' ? '__semua__' : a.startsWith('r:') ? a : (S.provinces[+a.slice(2)] || {}).name;
+      const i = BUL.areaIdx.get(name);
+      out[k] = i == null ? 0 : arr[i];
+    }
+  }
+  return out;
+}
+/* Ganti nilai bulanan (jumlah harian) dengan lokasi unik per bulan; status "penuh" tetap dari data harian */
+function withUniq(mo, b, key, year) {
+  if (!mo || !BUL) return mo;
+  const u = uniqMonthly(b, key, year);
+  const vals = mo.vals.map((v, k) => (v == null || !u || u[k] == null ? null : u[k]));
+  return vals.some(v => v != null) ? { ...mo, vals } : null;
+}
 /* Jumlah titik api harian dijumlahkan per bulan. full = semua hari bulan itu ada datanya. */
 function monthlyOf(arr, year) {
   if (!arr) return null;
@@ -2145,24 +2178,35 @@ function renderMonthly(box, legend, ytdT) {
   const cy = String(TY.current_year);
   const key = state.conf;
   const past = Object.keys(TY.series || {}).filter(y => y !== cy).sort();
-  const refCur = TY.series && TY.series[cy] ? monthlyOf(tSeries(TY.series[cy][key] || {}), +cy) : null;
-  const multiCur = TY.multi ? monthlyOf(tSeries(TY.multi[key] || {}), +cy) : null;
+  // Batang = lokasi unik per bulan (sama dengan angka di atas saat bulan dibuka); bila bulanan.json
+  // belum ada, jatuh ke jumlah harian. hGap = tahun yang datanya ada tetapi keyakinan tinggi S-NPP belum tepat.
+  const hGap = [];
+  const refDaily = TY.series && TY.series[cy] ? monthlyOf(tSeries(TY.series[cy][key] || {}), +cy) : null;
+  const refCur = withUniq(refDaily, 'ref', key, cy);
+  if (refDaily && !refCur && BUL) hGap.push(cy);
+  const multiCur = withUniq(TY.multi ? monthlyOf(tSeries(TY.multi[key] || {}), +cy) : null, 'all', key, cy);
   const canRef = !!(refCur && past.length);
   if (!state.trendBasis || (state.trendBasis === 'ref' && !canRef) || (state.trendBasis === 'multi' && !multiCur)) state.trendBasis = canRef ? 'ref' : 'multi';
   const basis = state.trendBasis;
   const cur = basis === 'ref' ? refCur : multiCur;
   const pastM = {};
-  for (const y of past) pastM[y] = monthlyOf(tSeries(TY.series[y][key] || {}), +y);
+  for (const y of past) {
+    const d = monthlyOf(tSeries(TY.series[y][key] || {}), +y);
+    pastM[y] = withUniq(d, 'ref', key, y);
+    if (d && !pastM[y] && BUL) hGap.push(y);
+  }
   // Pembanding: jumlah bulanan tiap tahun pilihan (bukan rata-rata)
   const setYears = (CONFIG.monthlyCompareYears || []).map(String).filter(y => pastM[y]).slice(0, 3);
+  // Tahun yang punya data untuk pilihan ini (mis. riwayat kawasan: "tinggi saja" belum ada untuk arsip lama)
+  const pastOk = past.filter(y => pastM[y]);
   let cmps = [];
-  if (basis === 'ref' && past.length) {
+  if (basis === 'ref' && pastOk.length) {
     if (state.trendCmp !== 'set' && pastM[state.trendCmp]) {
       cmps = [state.trendCmp];
     } else if (setYears.length) {
       state.trendCmp = 'set'; cmps = setYears;
     } else {
-      state.trendCmp = past[past.length - 1]; cmps = [state.trendCmp];
+      state.trendCmp = pastOk[pastOk.length - 1]; cmps = [state.trendCmp];
     }
   }
   const cmpS = cmps.map(yy => ({ year: yy, vals: pastM[yy].vals, full: pastM[yy].full, color: yearColor(yy) }));
@@ -2174,10 +2218,11 @@ function renderMonthly(box, legend, ytdT) {
   if (canRef) basisOpts.push(['ref', 'Sebanding antartahun (1 satelit)']);
   if (multiCur) basisOpts.push(['multi', `Lengkap ${cy} (3 satelit)`]);
   if (basisOpts.length > 1) ctl.append(segButtons(basisOpts, basis, v => { state.trendBasis = v; renderTrend(); }));
-  if (basis === 'ref' && past.length) {
+  if (basis === 'ref' && pastOk.length) {
     const sel = el('select', { class: 'select', 'aria-label': 'Bandingkan dengan' });
     if (setYears.length) sel.append(el('option', { value: 'set', text: joinYears(setYears) }));
-    for (const y of past.slice().reverse()) sel.append(el('option', { value: y, text: y }));
+    // Satu tahun pembanding saja: tidak perlu didaftar dua kali
+    for (const y of pastOk.slice().reverse()) if (!(setYears.length === 1 && y === setYears[0])) sel.append(el('option', { value: y, text: y }));
     sel.value = state.trendCmp;
     sel.addEventListener('change', () => { state.trendCmp = sel.value; renderTrend(); });
     ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, el('span', { text: 'Bandingkan dengan' }), sel));
@@ -2243,15 +2288,31 @@ function renderMonthly(box, legend, ytdT) {
       if (basis === 'ref' && multiCur) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), `${cy} (3 satelit)`), el('b', { text: multiCur.vals[k] == null ? '–' : fmt(multiCur.vals[k]) })));
       for (const cs of cmpS) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${cs.color}` }), cs.year), el('b', { text: cs.vals[k] == null ? '–' : fmt(cs.vals[k]) + (cs.full[k] ? '' : '*') })));
       if (cmpS.some(cs => cs.vals[k] != null && !cs.full[k])) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: '* data tidak lengkap sebulan penuh' }));
-      if (INDEX && v != null) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: 'Klik untuk membuka riwayat bulan ini' }));
+      if (clickable) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: `Klik batang untuk membuka bulan itu di peta${basis === 'ref' ? ' (1 satelit)' : ''}` }));
       return rows;
     };
     bindTip(hit, tip);
-    if (INDEX && v != null) {
+    // Batang yang bisa dibuka: tahun berjalan dan tahun pembanding yang punya arsip harian
+    const bars = [{ year: cy, v }, ...cmpS.map(cs => ({ year: cs.year, v: cs.vals[k] }))];
+    const clickable = !!INDEX && bars.some(bb => bb.v != null && INDEX_YB[bb.year]);
+    if (clickable) {
       hit.style.cursor = 'pointer';
-      hit.addEventListener('click', () => {
-        const last = `${cy}-${String(k + 1).padStart(2, '0')}-${String(daysInMonth(+cy, k)).padStart(2, '0')}`;
+      hit.addEventListener('click', e => {
+        // tahun = batang di bawah kursor (keyboard: tahun berjalan)
+        let yy = cy;
+        if (e && e.clientX != null && bars.length > 1) {
+          const rr = root.getBoundingClientRect(), px = (e.clientX - rr.left) * (W / rr.width);
+          const bi = Math.max(0, Math.min(bars.length - 1, Math.floor((px - x0 + gap / 2) / (bw + gap))));
+          if (bars[bi].v != null && INDEX_YB[bars[bi].year]) yy = bars[bi].year;
+        }
+        if (!INDEX_YB[yy] || (yy === cy && v == null)) yy = (bars.find(bb => bb.v != null && INDEX_YB[bb.year]) || { year: cy }).year;
+        const last = `${yy}-${String(k + 1).padStart(2, '0')}-${String(daysInMonth(+yy, k)).padStart(2, '0')}`;
         state.histEnd = clampDate(last); state.histRange = true;
+        // Peta memakai satelit yang sama dengan batang (1 satelit S-NPP atau semua), supaya angkanya sama
+        state.sat = basis === 'ref' || yy !== cy ? 'snpp' : 'all';
+        document.querySelectorAll('#segSat button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.sat)));
+        // Riwayat kawasan: angkanya untuk seluruh kawasan, jadi filter wilayah dilepas
+        if (parkC && state.area !== 'all') { state.area = 'all'; $('#selArea').value = 'all'; }
         const first = state.histEnd.slice(0, 8) + '01';
         state.histDays = Math.min(MAX_RANGE, daysBetween(first < yearBounds(state.histEnd.slice(0, 4)).first ? yearBounds(state.histEnd.slice(0, 4)).first : first, state.histEnd) + 1);
         if (state.mode === 'hist') { renderHistControls(); refreshHist(); } else enterHist();
@@ -2278,9 +2339,12 @@ function renderMonthly(box, legend, ytdT) {
       ...cs.map((c, i) => el('td', { class: 'r', text: c == null ? '–' : fmt(c) + (pastM[tblYears[i]].full[k] ? '' : '*') }))));
   }
   ytdT.append(tb);
-  $('#trendNote').textContent = 'Jumlah per bulan = jumlah titik api harian selama sebulan, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ' +
+  $('#trendNote').textContent = (BUL
+    ? 'Jumlah per bulan = jumlah lokasi titik api dalam sebulan; lokasi yang menyala beberapa hari dihitung sekali, sama dengan angka di bagian atas halaman saat bulan itu dibuka di mode Riwayat. '
+    : 'Jumlah per bulan = jumlah titik api harian selama sebulan, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ') +
     'Tanda * dan batang pudar = bulan belum penuh. ' +
-    (basis === 'ref' ? `Perbandingan antartahun memakai satu satelit (${TY.ref_label}); angka lengkap tiga satelit ada di tabel.` : 'Tiga satelit hanya tersedia untuk tahun berjalan, jadi tidak dibandingkan dengan tahun lain.');
+    (basis === 'ref' ? `Perbandingan antartahun memakai satu satelit (${TY.ref_label}); angka lengkap tiga satelit ada di tabel.` : 'Tiga satelit hanya tersedia untuk tahun berjalan, jadi tidak dibandingkan dengan tahun lain.') +
+    (basis === 'ref' && hGap.length ? ` Data keyakinan tinggi satu satelit untuk ${joinYears(hGap.sort())} belum tersedia.` : '');
 }
 
 /* ---------------- rentang tanggal yang sama di tahun-tahun lain ---------------- */
@@ -2339,7 +2403,7 @@ function renderSameDate(box, legend, ytdT) {
     }
     return { v: n ? sum : null, n, tot };
   };
-  const years = [cy, ...(CONFIG.monthlyCompareYears || []).map(String).filter(y => y !== cy && TY.series[y])];
+  const years = [cy, ...(CONFIG.monthlyCompareYears || []).map(String).filter(y => y !== cy && TY.series[y] && TY.series[y][key])];
   const multiArr = TY.multi ? tSeries(TY.multi[key] || {}) : null;
   const rows = years.map(y => ({
     year: y, color: y === cy ? 'var(--accent)' : yearColor(y),
@@ -2834,6 +2898,12 @@ async function main() {
   }
   [YOY, WIND, AIR, AERO, PROV_GJ, INDEX] = await Promise.all([getJSON('yoy.json', true), getJSON('angin.json', true), getJSON('udara.json', true), getJSON('aerosol.json', true), getJSON('provinsi.geojson', true),
     fetch(CONFIG.archiveUrl + 'harian/indeks.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null)]);
+  BUL = await fetch(CONFIG.archiveUrl + 'harian/bulanan.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  if (BUL) {
+    BUL.areaIdx = new Map(BUL.areas.map((a, i) => [a, i]));
+    BUL.ctxIdx = {};
+    for (const id in BUL.ctx || {}) BUL.ctxIdx[id] = new Map(BUL.ctx[id].map((n, i) => [n, i]));
+  }
   if (INDEX && INDEX.days && INDEX.days.length) {
     INDEX_MAP = new Map(INDEX.days.map(d => [d.d, d]));
     INDEX_DAYS = INDEX.days.map(d => d.d).sort();
