@@ -146,6 +146,7 @@ python -m pipeline.prep_taman_nasional SHP_Kawasan_Lindung_Indonesia_May2019.zip
 - Kolom provinsi diisi provinsi yang memuat minimal 10% luas taman.
 - Di kartu "Di mana titik api berada", daftar taman nasional bisa dicari (nama, nama baru, atau provinsi) dan dibuka seluruhnya, termasuk taman tanpa titik api.
 - Jumlah titik api per taman untuk periode tertentu: buka mode Riwayat dengan rentang yang diinginkan; tabel taman nasional menghitung ulang untuk rentang itu.
+- **Per tahun:** tombol "Per tahun" di kartu taman nasional menampilkan lokasi titik api per taman untuk tiap tahun berarsip (2015, 2019, 2023, tahun berjalan), tiap lokasi dihitung sekali dalam setahun. Angkanya ikut filter Satelit dan Keyakinan, tidak terpengaruh Periode dan Wilayah. Klik nama taman untuk akumulasi per bulan (1 Januari s.d. akhir tiap bulan). Cara hitungnya sama dengan mode Riwayat; datanya `data/archive/harian/tahunan_taman_nasional.json`, dibuat `pipeline/tahunan_konteks.py` setiap pembaruan (hanya tahun yang berubah dihitung ulang; semua: `python -m pipeline.tahunan_konteks --ulang`).
 - `pipeline/riwayat_konteks.py` tetap membuat `data/archive/harian/riwayat_taman_nasional.json` (hitungan harian per taman) setiap pembaruan; dashboard tidak lagi menampilkannya, tetapi datanya dipakai untuk menandai hari yang data S-NPP-nya kosong/bolong.
 - WDPA bebas dipakai untuk keperluan nonkomersial dengan menyebut sumbernya (UNEP-WCMC & IUCN, Protected Planet); atribusinya sudah tampil di bagian Sumber dashboard.
 

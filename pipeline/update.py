@@ -26,6 +26,7 @@ from . import harian as HR
 from . import s5p as S5
 from . import retag_konteks as RK
 from . import riwayat_konteks as RW
+from . import tahunan_konteks as TK
 from . import weather as W
 
 log = logging.getLogger("update")
@@ -243,6 +244,11 @@ def main(argv=None):
         changed += dropped
     except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
         log.warning("riwayat per kawasan gagal: %s", e)
+    # Titik api per tahun di tiap kawasan bernama (tabel "Per tahun" di kartu taman nasional)
+    try:
+        changed += TK.run(ctx_layers, provinces)
+    except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
+        log.warning("hitungan tahunan per kawasan gagal: %s", e)
     # Hitungan bulanan lama (grafik per bulan sudah tidak dipakai): hapus filenya
     old_bulanan = HR.DAY_DIR / "bulanan.json"
     if old_bulanan.exists():
@@ -322,7 +328,10 @@ def main(argv=None):
                          "source_url": l.get("source_url"),
                          # riwayat harian per kawasan (relatif terhadap data/archive/)
                          "history": f"harian/{RW.PREFIX}{l['id']}.json"
-                                    if l["ranked"] and RW.out_path(l["id"]).exists() else None})
+                                    if l["ranked"] and RW.out_path(l["id"]).exists() else None,
+                         # titik api per tahun per kawasan (relatif terhadap data/archive/)
+                         "yearly": f"harian/{TK.PREFIX}{l['id']}.json"
+                                   if l["ranked"] and TK.out_path(l["id"]).exists() else None})
 
     prov_disp = provinces.copy()
     prov_disp = prov_disp.rename(columns={"prov_i": "i", "prov_name": "name"})
