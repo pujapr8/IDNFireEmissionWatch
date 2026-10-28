@@ -238,13 +238,6 @@ section + section { margin-top: 16px; }
 .meter .mtrack { height: 8px; background: var(--accent-soft); border-radius: 4px; margin-top: 5px; overflow: hidden; }
 .meter .mfill { height: 100%; background: var(--accent); border-radius: 4px; }
 
-.trend-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-.trend-legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin: 4px 0 6px; flex-wrap: wrap; }
-.trend-legend .lk { display: inline-flex; align-items: center; gap: 6px; }
-.trend-legend .lk i { width: 16px; height: 2px; border-radius: 1px; display: inline-block; }
-#trend { position: relative; width: 100%; }
-#trend svg { display: block; width: 100%; overflow: visible; }
-#trend text { font-family: var(--font); }
 .empty { color: var(--muted); font-size: 14px; padding: 24px 0; text-align: center; }
 .note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
 
@@ -291,20 +284,6 @@ footer { padding-top: 24px; padding-bottom: 40px; font-size: 12.5px; color: var(
 .hist-note { font-size: 12.5px; color: var(--muted); }
 body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { opacity: .55; transition: opacity .15s; }
 .legend .gsq { width: 12px; height: 10px; display: inline-block; border-radius: 2px; }
-.trend-controls { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; font-size: 12.5px; color: var(--ink-2); }
-.trend-controls:empty { display: none; }
-.cbtn {
-  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap;
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2);
-  border-radius: 999px; padding: 5px 12px 5px 10px; font-size: 12.5px; line-height: 1.3;
-}
-.cbtn:hover { color: var(--ink); }
-.cbtn .tick { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; box-sizing: border-box; }
-.cbtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); font-weight: 600; }
-.cbtn[aria-pressed="true"] .tick { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--surface); }
-.cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.trend-legend .lk .bx { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 .col.clickable { cursor: pointer; }
 
 /* ---------- responsive ---------- */
@@ -339,13 +318,6 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
 .ctx-search { width: 100%; max-width: 380px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; margin-top: 4px; }
 .ctx-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ctx-alias { display: block; font-size: 12px; color: var(--muted); }
-.tbl td.hcell { width: 36px; padding-top: 4px; padding-bottom: 4px; text-align: center; }
-.ctx-hist { display: inline-grid; place-items: center; width: 30px; height: 26px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink-2); cursor: pointer; padding: 0; }
-.ctx-hist:hover { color: var(--accent); border-color: var(--accent); }
-.ctx-hist[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.ctx-hist:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.ctx-hist svg { width: 15px; height: 15px; }
-#trendArea { max-width: min(340px, 72vw); }
 
 /* ---------- bola dunia Sentinel-5P (aerosol & CO, rata-rata 3 hari) ---------- */
 /* Panel sengaja selalu gelap (gaya penampil satelit) di tema terang maupun gelap. */
@@ -550,29 +522,6 @@ body.is-loading .kpis, body.is-loading .map-grid, body.is-loading #secTables { o
     </div>
   </section>
 
-  <section class="card" id="secTrend" aria-labelledby="trendTitle">
-    <div class="trend-head">
-      <div>
-        <h2 id="trendTitle">Dibanding bulan-bulan sebelumnya</h2>
-        <p class="sub" id="trendSub" style="margin-bottom:4px"></p>
-      </div>
-      <div class="mini-seg" role="group" aria-label="Tampilan grafik" id="segTrend">
-        <button type="button" data-v="bulan">Per bulan</button>
-        <button type="button" data-v="tgl">Tanggal sama</button>
-        <button type="button" data-v="cum">Kumulatif</button>
-        <button type="button" data-v="daily">Harian (rata-rata 7 hari)</button>
-      </div>
-    </div>
-    <div class="trend-controls" id="trendControls"></div>
-    <div class="trend-legend" id="trendLegend"></div>
-    <div id="trend"></div>
-    <details style="margin-top:10px">
-      <summary class="text-btn" style="display:inline">Lihat sebagai tabel</summary>
-      <div class="tbl-wrap" style="margin-top:8px"><table class="tbl" id="ytdTbl"></table></div>
-    </details>
-    <p class="note" id="trendNote"></p>
-  </section>
-
   <section class="card" id="secS5P" aria-labelledby="s5pTitle">
     <h2 id="s5pTitle">Asap dan karbon monoksida di atmosfer</h2>
     <p class="sub">Citra satelit Sentinel-5P, rata-rata 3 hari. Geser garis waktu untuk melihat hari lain, seret bola untuk memutar.</p>
@@ -632,9 +581,6 @@ const CONFIG = {
   dataUrl: 'data/live/',
   archiveUrl: 'data/archive/',
   publisher: '',            // mis. 'Redaksi Contoh' — tampil di kaki halaman bila diisi
-  // Tahun pembanding yang ditampilkan bersama di grafik "Per bulan" (maks. 3),
-  // masing-masing dengan warna tetap di semua tampilan grafik.
-  monthlyCompareYears: [2015, 2019, 2023],
   // Warna lapisan aerosol: [indeks aerosol, warna, keburaman]. Citra hanya
   // menyimpan nilai indeks, jadi warna bisa diganti di sini tanpa unduh ulang.
   aerosolRamps: {
@@ -744,11 +690,10 @@ const state = {
   win: '24h', conf: 'nh', area: 'all',
   base: 'map', imgDate: null,
   layers: { hotspots: true, boundaries: true, wind: !isMobile(), air: true, aerosol: true },
-  windFrame: 0, ctx: {}, ctxQ: {}, ctxN: {}, tpark: null, trend: 'bulan', rankAll: false, kabN: 10,
-  sat: 'all', mode: 'live', histEnd: null, histDays: 1, histRange: false, trendBasis: null, trendCmp: 'set', cmpPreset: null, cmpFrom: null, cmpTo: null
+  windFrame: 0, ctx: {}, ctxQ: {}, ctxN: {}, rankAll: false, kabN: 10,
+  sat: 'all', mode: 'live', histEnd: null, histDays: 1, histRange: false
 };
 let S, H, YOY, WIND, AIR, AERO, PROV_GJ, CTX_GJ = {};
-let BUL = null;  // lokasi titik api unik per bulan (data/archive/harian/bulanan.json)
 let INDEX = null, INDEX_MAP = new Map(), LIVE_H = null;
 const MAX_RANGE = 90;  // rentang Riwayat maksimum (hari); tiap hari = satu file arsip
 let INDEX_DAYS = [], INDEX_YEARS = [], INDEX_YB = {};  // tanggal tersedia, tahun, batas per tahun
@@ -765,8 +710,6 @@ function readUrl() {
   const tg = p.get('tanggal');
   if (tg && /^\d{4}-\d{2}-\d{2}$/.test(tg)) { state.histEnd = tg; state._histFromUrl = true; }
   if (p.get('satelit') === 'snpp') state.sat = 'snpp';
-  const kw = p.get('kawasan');
-  if (kw) state._tparkName = kw;
   const du = Math.round(+p.get('durasi'));
   if (du >= 1 && du <= MAX_RANGE) { state.histDays = du; state.histRange = ![1, 7, 30].includes(du); }
 }
@@ -778,7 +721,6 @@ function writeUrl() {
   if (state.sat === 'snpp') p.set('satelit', 'snpp');
   const an = areaName(state.area);
   if (state.area !== 'all') p.set('wilayah', an);
-  if (state.tpark) p.set('kawasan', state.tpark.name);
   const qs = p.toString();
   history.replaceState(null, '', qs ? '?' + qs : location.pathname);
 }
@@ -841,10 +783,9 @@ function areaName(area) {
   const p = S.provinces[+area.slice(2)];
   return p ? p.name : '';
 }
-/* Apakah baris ini "keyakinan tinggi" menurut filter satelit yang aktif?
-   1 satelit (S-NPP): high menurut S-NPP sendiri (sama dengan hitungan grafik bulanan/ref_daily).
-   Semua satelit: high menurut satelit mana pun. */
-function isHigh(i) { return state.sat === 'snpp' ? (H.hs[i] & SNPP_BIT) !== 0 : H.high[i] === 1; }
+/* Apakah baris ini "keyakinan tinggi"? Menurut satelit mana pun yang mendeteksinya.
+   Dengan filter 1 satelit (S-NPP): lokasi yang terdeteksi S-NPP dan berkeyakinan tinggi. */
+function isHigh(i) { return H.high[i] === 1; }
 function selectRows(fromMin, toMin) {
   const ps = areaProvSet(state.area), out = [];
   for (let i = 0; i < H.n; i++) {
@@ -1429,7 +1370,6 @@ function update() {
   renderRank(agg);
   renderKab(agg);
   renderCtx(agg);
-  renderTrend();
   renderLegend();
   writeUrl();
 }
@@ -1455,14 +1395,6 @@ function renderKpis(agg) {
     } else foot.append(el('span', { text: `Tidak ada titik api pada ${what}` }));
   } else {
     foot.append(el('span', { text: 'Lokasi yang terdeteksi berulang dalam periode ini dihitung sekali' }));
-  }
-  // Grafik Tanggal sama, Kumulatif & Harian menjumlahkan hitungan per hari, jadi sel yang menyala
-  // beberapa hari terhitung berkali-kali. Tampilkan angka itu agar bisa dicocokkan.
-  // (Grafik per bulan memakai lokasi unik, sama dengan angka besar di atas.)
-  const perDay = current.idx.length;
-  if (perDay !== total) {
-    foot.append(el('span', { style: 'flex-basis:100%;color:var(--muted)',
-      text: `Dijumlahkan per hari: ${fmt(perDay)} (cara hitung grafik Tanggal sama, Kumulatif, dan Harian)` }));
   }
   $('#kHigh').textContent = fmt(high);
   $('#kHighFoot').textContent = state.conf === 'h' ? 'Filter "Tinggi saja" sedang aktif' : total ? `${PCT.format(high / total)} dari semua titik` : '—';
@@ -1715,15 +1647,13 @@ function renderCtx(agg) {
     });
     const withFire = all.filter(o => o.v).length;
     const canFocus = !!(ctxLayers[c.id] && gj);
-    const hasHist = !!c.history;  // riwayat harian per kawasan tersedia
     const noun = c.label.toLowerCase();
     body.append(el('h3', { style: 'font-size:13.5px;margin:18px 0 4px', text: `${c.label}: titik api terbanyak` }));
     const q = el('input', { type: 'search', class: 'ctx-search', placeholder: `Cari nama ${noun}${c.group_label ? ' atau ' + c.group_label.toLowerCase() : ''}…`, 'aria-label': `Cari ${noun}`, 'data-layer': c.id });
     q.value = state.ctxQ[c.id] || '';
     const info = el('p', { class: 'sub', style: 'margin:6px 0 4px', 'aria-live': 'polite' });
     const t = el('table', { class: 'tbl' });
-    t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Nama' }), el('th', { text: c.group_label || 'Grup' }), el('th', { class: 'r', text: 'Titik api' }),
-      hasHist ? el('th', { class: 'hcell', text: 'Riwayat' }) : null)));
+    t.append(el('thead', null, el('tr', null, el('th', { text: '#' }), el('th', { text: 'Nama' }), el('th', { text: c.group_label || 'Grup' }), el('th', { class: 'r', text: 'Titik api' }))));
     const tb = el('tbody');
     t.append(tb);
     const more = el('button', { class: 'text-btn', type: 'button' });
@@ -1736,15 +1666,14 @@ function renderCtx(agg) {
         const tr = el('tr', canFocus ? { class: 'ctx-row', tabindex: '0', title: 'Lihat di peta' } : null,
           el('td', { class: 'rank', text: o.rank || '–' }),
           el('td', null, o.name, o.alias ? el('span', { class: 'ctx-alias', text: o.alias }) : null),
-          el('td', { class: 'grp', text: o.group || '–' }), el('td', { class: 'r', text: fmt(o.v) }),
-          hasHist ? el('td', { class: 'hcell' }, histBtn(c, o.name)) : null);
+          el('td', { class: 'grp', text: o.group || '–' }), el('td', { class: 'r', text: fmt(o.v) }));
         if (canFocus) {
           tr.addEventListener('click', () => focusCtx(c, o.name));
           tr.addEventListener('keydown', e => { if (e.target === tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); focusCtx(c, o.name); } });
         }
         tb.append(tr);
       });
-      if (!list.length) tb.append(el('tr', null, el('td', { colspan: hasHist ? 5 : 4, class: 'muted', text: s ? `Tidak ada ${noun} dengan nama itu.` : 'Tidak ada titik api di kawasan ini.' })));
+      if (!list.length) tb.append(el('tr', null, el('td', { colspan: 4, class: 'muted', text: s ? `Tidak ada ${noun} dengan nama itu.` : 'Tidak ada titik api di kawasan ini.' })));
       info.textContent = s
         ? `${fmt(list.length)} hasil${list.length && canFocus ? ' · klik nama untuk melihatnya di peta' : ''}`
         : `${fmt(withFire)} dari ${fmt(all.length)} ${noun} memiliki titik api pada pilihan ini${canFocus ? ' · klik nama untuk melihatnya di peta' : ''}`;
@@ -1758,144 +1687,12 @@ function renderCtx(agg) {
     if (keep && keep.id === c.id) { q.focus({ preventScroll: true }); try { q.setSelectionRange(keep.s, keep.e); } catch (e) { /* abaikan */ } }
   }
 }
-/* Tombol "Riwayat" per kawasan: buka grafik riwayatnya di kartu perbandingan */
-function histBtn(c, name) {
-  const on = !!(state.tpark && state.tpark.id === c.id && state.tpark.name === name);
-  const b = el('button', { type: 'button', class: 'ctx-hist', 'aria-current': on ? 'true' : null, 'data-layer': c.id, 'data-name': name,
-    'aria-label': `Lihat riwayat titik api ${c.label.toLowerCase()} ${name}`, title: 'Lihat riwayat titik api' });
-  b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14h12M4.5 11V8M8 11V3.5M11.5 11V6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-  b.addEventListener('click', e => { e.stopPropagation(); setTrendPark({ id: c.id, name }, true); });
-  return b;
-}
 /* Huruf kecil tanpa tanda diakritik dan tanda baca, untuk pencarian nama kawasan */
 function ctxNorm(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-/* ---------------- riwayat per kawasan (mis. taman nasional) ----------------
-   Data: data/archive/harian/riwayat_<id>.json (lihat pipeline/riwayat_konteks.py).
-   Dibentuk menjadi objek berpola yoy.json supaya semua tampilan grafik
-   perbandingan bisa dipakai untuk satu kawasan. */
-const PH = {}, PH_LOAD = {};
-let PARK_Y = null, TY = null;  // TY = sumber data grafik perbandingan: YOY (wilayah) atau PARK_Y (kawasan)
-function histLayers() { return ((S && S.context_layers) || []).filter(c => c.ranked && c.history); }
-function parkList(c) {
-  const seen = new Map(), gj = CTX_GJ[c.id], R = PH[c.id];
-  for (const f of (gj && gj.features) || []) {
-    const p = f.properties || {};
-    if (p.ctx_name && !seen.has(p.ctx_name)) seen.set(p.ctx_name, { name: p.ctx_name, alias: p.ctx_alias || '' });
-  }
-  if (R) for (const n of R.names) if (!seen.has(n)) seen.set(n, { name: n, alias: '' });
-  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'id'));
-}
-function loadParkHistory(c) {
-  if (!PH_LOAD[c.id]) {
-    PH_LOAD[c.id] = fetch(CONFIG.archiveUrl + c.history, { cache: 'no-cache' })
-      .then(r => { if (!r.ok) throw new Error(c.history + ' ' + r.status); return r.json(); })
-      .then(R => {
-        R.byName = new Map();
-        for (const row of R.counts) {
-          const n = R.names[row[1]];
-          if (!R.byName.has(n)) R.byName.set(n, []);
-          R.byName.get(n).push(row);
-        }
-        return (PH[c.id] = R);
-      })
-      .catch(e => { delete PH_LOAD[c.id]; throw e; });
-  }
-  return PH_LOAD[c.id];
-}
-function yearDays() {
-  if (YOY && YOY.days) return YOY.days;
-  const out = [];
-  for (let t = Date.UTC(2024, 0, 1); t <= Date.UTC(2024, 11, 31); t += 864e5) out.push(new Date(t).toISOString().slice(5, 10));
-  return out;
-}
-/* Seri harian satu kawasan: series[tahun][nh|h][total] = 366 angka (null = tidak ada data).
-   Satu satelit (referensi) untuk semua tahun; semua satelit (multi) untuk tahun berjalan. */
-function parkYoy(c, name) {
-  const R = PH[c.id], days = yearDays(), T = (YOY && YOY.total_key) || '__semua__';
-  const pos = {}; days.forEach((d, k) => { pos[d] = k; });
-  const lastY = R.days.length ? R.days[R.days.length - 1][0].slice(0, 4) : String(new Date().getFullYear());
-  const cy = String(YOY ? YOY.current_year : lastY);
-  const blank = () => new Array(366).fill(null);
-  const series = {}, hGap = new Set();
-  let multi = null, lastRef = null, lastAll = null;
-  // ref: 1 = data satelit referensi lengkap; 2 = arsip lama (keyakinan tinggi per satelit belum ada); 0 = tidak ada/bolong
-  for (const [iso, , ref] of R.days) {
-    const y = iso.slice(0, 4), k = pos[iso.slice(5)];
-    if (ref >= 1) {
-      const sy = series[y] || (series[y] = { nh: { [T]: blank() }, h: { [T]: blank() } });
-      sy.nh[T][k] = 0;
-      if (ref === 1) sy.h[T][k] = 0; else hGap.add(y);
-      if (y === cy) lastRef = iso;
-    }
-    if (y === cy) {
-      multi = multi || { year: +cy, nh: { [T]: blank() }, h: { [T]: blank() } };
-      multi.nh[T][k] = 0; multi.h[T][k] = 0; lastAll = iso;
-    }
-  }
-  for (const [di, , nh, h, rnh, rh] of R.byName.get(name) || []) {
-    const [iso, , ref] = R.days[di], y = iso.slice(0, 4), k = pos[iso.slice(5)];
-    if (ref >= 1) { series[y].nh[T][k] = rnh; if (ref === 1) series[y].h[T][k] = rh; }
-    if (y === cy) { multi.nh[T][k] = nh; multi.h[T][k] = h; }
-  }
-  // Tahun yang sebagian harinya belum memisahkan keyakinan tinggi per satelit: seri "tinggi saja" tidak dipakai
-  for (const y of hGap) delete series[y].h;
-  if (multi) multi.last_date = lastAll;
-  return { park: name, park_label: c.label, park_id: c.id, h_gap: [...hGap].sort(),
-    ref_label: R.ref_label || (YOY && YOY.ref_label) || 'VIIRS S-NPP', current_year: +cy,
-    last_date: lastRef, days, total_key: T, series, multi };
-}
-/* Pilih kawasan untuk grafik perbandingan (null = kembali ke wilayah pilihan) */
-async function setTrendPark(sel, scroll) {
-  const c = sel && histLayers().find(l => l.id === sel.id);
-  state.tpark = c ? sel : null; PARK_Y = null;
-  document.querySelectorAll('.ctx-hist').forEach(b => {
-    const on = !!(state.tpark && b.dataset.layer === state.tpark.id && b.dataset.name === state.tpark.name);
-    if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
-  });
-  if (scroll) {
-    // gulir ke kartu grafik, tidak tertutup bilah filter yang menempel di atas
-    const f = document.querySelector('.filters'), sec = $('#secTrend');
-    const off = f && getComputedStyle(f).position === 'sticky' ? f.getBoundingClientRect().height : 0;
-    window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - off - 10, behavior: 'smooth' });
-  }
-  let failed = false;
-  if (state.tpark) {
-    if (!PH[c.id]) {
-      $('#trend').replaceChildren(el('div', { class: 'empty', text: `Memuat riwayat ${c.label.toLowerCase()} ${sel.name}…` }));
-      $('#trendLegend').replaceChildren(); $('#ytdTbl').replaceChildren();
-    }
-    try { await loadParkHistory(c); } catch (e) { console.error(e); failed = true; }
-    if (state.tpark !== sel) return;  // pilihan sudah berganti selama memuat
-    if (failed) state.tpark = null; else PARK_Y = parkYoy(c, sel.name);
-  }
-  renderTrend(); writeUrl();
-  if (failed) $('#trendNote').textContent = `Riwayat ${c.label.toLowerCase()} ${sel.name} gagal dimuat; coba lagi nanti. ` + $('#trendNote').textContent;
-}
-/* Pilihan wilayah grafik: wilayah pilihan (filter di peta) atau satu kawasan */
-function parkPicker() {
-  const hl = histLayers();
-  if (!hl.length) return null;
-  const sel = el('select', { class: 'select', id: 'trendArea', 'aria-label': 'Wilayah grafik' });
-  sel.append(el('option', { value: '', text: areaName(state.area) }));
-  for (const c of hl) {
-    const g = el('optgroup', { label: c.label });
-    for (const p of parkList(c)) g.append(el('option', { value: `${c.id}|${p.name}`, text: p.alias ? `${p.name} (${p.alias})` : p.name }));
-    sel.append(g);
-  }
-  sel.value = state.tpark ? `${state.tpark.id}|${state.tpark.name}` : '';
-  sel.addEventListener('change', () => {
-    const v = sel.value, i = v.indexOf('|');
-    setTrendPark(v ? { id: v.slice(0, i), name: v.slice(i + 1) } : null);
-  });
-  return el('label', { style: 'display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap' }, el('span', { text: 'Wilayah grafik', style: 'white-space:nowrap' }), sel);
-}
-function tSeries(obj) { return TY && TY.park ? (obj[TY.total_key] ? obj[TY.total_key].slice() : null) : areaSeries(obj); }
-function tAreaName() { return TY && TY.park ? `${TY.park_label} ${TY.park}` : areaName(state.area); }
-
-/* ---------------- tren antartahun ---------------- */
+/* Seri harian satelit referensi untuk wilayah pilihan (batang 7 hari di mode Riwayat, filter 1 satelit) */
 function areaSeries(obj) {
   const tot = obj[YOY.total_key];
   if (!tot) return null;
@@ -1903,579 +1700,6 @@ function areaSeries(obj) {
   const ps = areaProvSet(state.area);
   const names = S.provinces.filter(p => ps.has(p.i)).map(p => p.name);
   return tot.map((v, k) => v == null ? null : names.reduce((s, n) => s + (obj[n] ? (obj[n][k] || 0) : 0), 0));
-}
-function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
-function transformSeries(arr, year, mode) {
-  const a = arr.slice();
-  if (!isLeap(+year) && a[59] == null) a[59] = '__skip__';
-  const out = new Array(366).fill(null);
-  if (mode === 'cum') {
-    let run = 0, started = false;
-    for (let k = 0; k < 366; k++) {
-      if (a[k] === '__skip__') { out[k] = started ? run : null; continue; }
-      if (a[k] == null) continue;
-      run += a[k]; started = true; out[k] = run;
-    }
-    // jangan perpanjang melewati data terakhir
-  } else {
-    for (let k = 0; k < 366; k++) {
-      if (a[k] == null) continue;
-      if (a[k] === '__skip__') { out[k] = null; continue; }
-      let s = 0, n = 0;
-      for (let j = Math.max(0, k - 6); j <= k; j++) if (a[j] != null && a[j] !== '__skip__') { s += a[j]; n++; }
-      out[k] = n >= 4 ? s / n : null;
-    }
-    if (out[59] == null && out[58] != null && out[60] != null) out[59] = (out[58] + out[60]) / 2;
-  }
-  return out;
-}
-/* Skala sumbu dengan langkah "bulat" (1, 2, 2,5, 5 × 10^n) */
-function niceScale(v, target = 4) {
-  if (!(v > 0)) return { max: 10, step: 2.5 };
-  const raw = v / target, p = Math.pow(10, Math.floor(Math.log10(raw)));
-  const step = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw);
-  return { max: Math.ceil(v / step) * step, step };
-}
-const slotLabel = k => { const md = YOY.days[k]; return `${+md.slice(3)} ${BULAN[+md.slice(0, 2) - 1]}`; };
-
-/* Warna tetap per tahun: tahun pembanding pilihan berwarna, tahun lain abu-abu */
-function yearColor(y) {
-  const i = (CONFIG.monthlyCompareYears || []).map(String).indexOf(String(y));
-  return i >= 0 && i < 3 ? `var(--y${i + 1})` : 'var(--past)';
-}
-function joinYears(ys) {
-  return ys.length < 2 ? ys.join('') : ys.slice(0, -1).join(', ') + ' & ' + ys[ys.length - 1];
-}
-
-function renderTrend() {
-  TY = state.tpark && PARK_Y ? PARK_Y : YOY;
-  renderTrendInner();
-  const on = state.conf === 'h';
-  $('#trendControls').append(el('button', {
-    type: 'button', class: 'cbtn', 'aria-pressed': String(on),
-    title: 'Hitung hanya titik api dengan tingkat keyakinan tinggi',
-    onclick: () => setConf(on ? 'nh' : 'h')
-  }, el('i', { class: 'tick' }), 'Keyakinan tinggi saja'));
-  // Riwayat kawasan: tahun yang arsipnya belum memisahkan keyakinan tinggi per satelit
-  if (TY && TY.park && on && TY.h_gap.length && state.trend !== 'bulan')
-    $('#trendNote').textContent += ` Data keyakinan tinggi satu satelit untuk ${joinYears(TY.h_gap)} belum tersedia.`;
-}
-function renderTrendInner() {
-  const box = $('#trend'); box.replaceChildren();
-  const legend = $('#trendLegend'); legend.replaceChildren();
-  const ytdT = $('#ytdTbl'); ytdT.replaceChildren();
-  document.querySelectorAll('#segTrend button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.trend)));
-  $('#trendControls').replaceChildren();
-  const pick = parkPicker();
-  if (pick) $('#trendControls').append(pick);
-  if (state.trend === 'bulan' && TY && (Object.keys(TY.series || {}).length || TY.multi)) return renderMonthly(box, legend, ytdT);
-  if (state.trend === 'tgl' && TY && Object.keys(TY.series || {}).length) return renderSameDate(box, legend, ytdT);
-  if (!TY || !Object.keys(TY.series || {}).length) {
-    box.append(el('div', { class: 'empty', text: 'Data perbandingan antartahun belum tersedia. Jalankan pengisian arsip (backfill) satu kali.' }));
-    $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
-    return;
-  }
-  const cy = String(TY.current_year);
-  const years = Object.keys(TY.series).sort();
-  const key = state.conf;
-  const series = years.map(y => {
-    const raw = tSeries(TY.series[y][key] || {});
-    return raw ? { year: y, raw, vals: transformSeries(raw, y, state.trend) } : null;
-  }).filter(Boolean);
-  const cur = series.find(s => s.year === cy);
-  const lastK = cur ? cur.vals.reduce((m, v, k) => v != null ? k : m, -1) : -1;
-  $('#trendSub').textContent = `${state.trend === 'cum' ? 'Jumlah titik api sejak 1 Januari' : 'Titik api per hari, rata-rata 7 hari'} · ${tAreaName()} · satu satelit (${TY.ref_label}) agar sebanding antartahun`;
-  legend.append(el('span', { class: 'lk' }, el('i', { style: 'background:var(--accent);height:2px' }), `${cy} (tahun ini)`));
-  const pastYears = series.filter(s => s.year !== cy).map(s => s.year);
-  for (const yy of pastYears) if (yearColor(yy) !== 'var(--past)') legend.append(el('span', { class: 'lk' }, el('i', { style: `background:${yearColor(yy)};height:2px` }), yy));
-  const others = pastYears.filter(yy => yearColor(yy) === 'var(--past)');
-  if (others.length) legend.append(el('span', { class: 'lk' }, el('i', { style: 'background:var(--past);height:2px' }), others.length === pastYears.length ? 'Tahun-tahun sebelumnya' : `Tahun lain (${joinYears(others)})`));
-
-  const W = Math.max(300, box.clientWidth);
-  const Hh = W < 600 ? 250 : 320;
-  const m = { t: 14, r: W < 600 ? 44 : 58, b: 26, l: 44 };
-  const pw = W - m.l - m.r, ph = Hh - m.t - m.b;
-  let ymax = 0;
-  for (const s of series) for (const v of s.vals) if (v != null && v > ymax) ymax = v;
-  const sc = niceScale(ymax * 1.02);
-  ymax = sc.max;
-  const x = k => m.l + (k / 365) * pw;
-  const y = v => m.t + (1 - v / ymax) * ph;
-  const root = svg('svg', { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: 'img', 'aria-label': `Grafik ${state.trend === 'cum' ? 'kumulatif' : 'harian'} titik api per tahun` });
-  // grid
-  for (let v = 0; v <= ymax + 1e-9; v += sc.step) {
-    const yy = y(v), t = v;
-    root.append(svg('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: t === 0 ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }));
-    const tx = svg('text', { x: m.l - 8, y: yy + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' });
-    tx.textContent = v >= 1000 ? NFC.format(v) : fmt(v); root.append(tx);
-  }
-  TY.days.forEach((md, k) => {
-    if (md.slice(3) !== '01') return;
-    const mi = +md.slice(0, 2) - 1;
-    if (W < 600 && mi % 2) return;
-    const tx = svg('text', { x: x(k), y: Hh - 8, 'font-size': 11, fill: 'var(--muted)' });
-    tx.textContent = BULAN[mi]; root.append(tx);
-  });
-  const pathOf = vals => {
-    let d = '', pen = false;
-    vals.forEach((v, k) => {
-      if (v == null) { pen = false; return; }
-      d += (pen ? 'L' : 'M') + x(k).toFixed(1) + ' ' + y(v).toFixed(1); pen = true;
-    });
-    return d;
-  };
-  const past = series.filter(s => s.year !== cy);
-  const lines = {};
-  // abu-abu dulu, tahun pilihan di atasnya
-  const drawOrder = past.slice().sort((a, b) => (yearColor(a.year) === 'var(--past)' ? 0 : 1) - (yearColor(b.year) === 'var(--past)' ? 0 : 1));
-  for (const s of drawOrder) {
-    const p = svg('path', { d: pathOf(s.vals), fill: 'none', stroke: yearColor(s.year), 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-    root.append(p); lines[s.year] = p;
-  }
-  if (cur) {
-    if (state.trend === 'cum') {
-      // area wash di bawah garis tahun ini
-      const d = pathOf(cur.vals);
-      if (d) root.append(svg('path', { d: d + `L${x(lastK).toFixed(1)} ${y(0)}L${x(cur.vals.findIndex(v => v != null)).toFixed(1)} ${y(0)}Z`, fill: 'var(--accent)', 'fill-opacity': 0.1, stroke: 'none' }));
-    }
-    root.append(svg('path', { d: pathOf(cur.vals), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-  }
-  // label akhir garis tahun lalu (dibuang bila bertabrakan)
-  const labels = past.map(s => {
-    const k = s.vals.reduce((mm, v, j) => v != null ? j : mm, -1);
-    return k < 0 ? null : { year: s.year, yy: y(s.vals[k]), xx: x(k) };
-  }).filter(Boolean).sort((a, b) => a.yy - b.yy);
-  let lastY = -99;
-  for (const l of labels) {
-    if (l.yy - lastY < 13) continue;
-    const tx = svg('text', { x: l.xx + 6, y: l.yy + 4, 'font-size': 11.5, fill: 'var(--ink-2)', 'font-variant-numeric': 'tabular-nums' });
-    tx.textContent = l.year; root.append(tx); lastY = l.yy;
-  }
-  if (cur && lastK >= 0) {
-    const cx = x(lastK), cyy = y(cur.vals[lastK]);
-    root.append(svg('circle', { cx, cy: cyy, r: 4.5, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }));
-    const tx = svg('text', { x: cx + 9, y: cyy - 8, 'font-size': 12.5, 'font-weight': 650, fill: 'var(--ink)', stroke: 'var(--surface)', 'stroke-width': 4, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
-    tx.textContent = `${cy}: ${fmt(cur.vals[lastK])}`; root.append(tx);
-  }
-  // crosshair & tooltip
-  const hair = svg('line', { y1: m.t, y2: m.t + ph, stroke: 'var(--axis)', 'stroke-width': 1, visibility: 'hidden' });
-  const dots = svg('g', { visibility: 'hidden' });
-  root.append(hair, dots);
-  const hit = svg('rect', { x: m.l, y: m.t, width: pw, height: ph, fill: 'transparent', tabindex: 0, 'aria-label': 'Arahkan untuk melihat nilai per tanggal' });
-  root.append(hit);
-  let focusK = lastK >= 0 ? lastK : 0;
-  const showAt = (k, cx, cyp) => {
-    k = Math.max(0, Math.min(365, k));
-    hair.setAttribute('x1', x(k)); hair.setAttribute('x2', x(k)); hair.setAttribute('visibility', 'visible');
-    dots.replaceChildren(); dots.setAttribute('visibility', 'visible');
-    const rows = [];
-    const order = [cur, ...past.slice().reverse()].filter(Boolean);
-    for (const s of order) {
-      const v = s.vals[k];
-      if (v == null) continue;
-      const isCur = s.year === cy;
-      const col = isCur ? 'var(--accent)' : yearColor(s.year);
-      dots.append(svg('circle', { cx: x(k), cy: y(v), r: 4, fill: col, stroke: 'var(--surface)', 'stroke-width': 2 }));
-      rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${col}` }), s.year), el('b', { text: state.trend === 'cum' ? fmt(v) : fmt1(v) })));
-    }
-    showTip([el('div', { class: 'th', text: slotLabel(k) + (state.trend === 'cum' ? ' · sejak 1 Jan' : ' · rata-rata 7 hari') }), ...rows], cx, cyp);
-  };
-  hit.addEventListener('pointermove', e => {
-    const r = root.getBoundingClientRect();
-    const px = (e.clientX - r.left) * (W / r.width);
-    focusK = Math.round((px - m.l) / pw * 365);
-    showAt(focusK, e.clientX, e.clientY);
-  });
-  const leave = () => { hair.setAttribute('visibility', 'hidden'); dots.setAttribute('visibility', 'hidden'); hideTip(); };
-  hit.addEventListener('pointerleave', leave);
-  hit.addEventListener('blur', leave);
-  hit.addEventListener('focus', () => { const r = root.getBoundingClientRect(); showAt(focusK, r.left + x(focusK) * r.width / W, r.top + 20); });
-  hit.addEventListener('keydown', e => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    focusK = Math.max(0, Math.min(365, focusK + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 7 : 1)));
-    const r = root.getBoundingClientRect(); showAt(focusK, r.left + x(focusK) * r.width / W, r.top + 20);
-  });
-  box.append(root);
-
-  // tabel: total sejak 1 Jan s.d. tanggal yang sama + setahun penuh
-  const cutK = lastK >= 0 ? lastK : 365;
-  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Tahun' }), el('th', { class: 'r', text: `1 Jan – ${slotLabel(cutK)}` }), el('th', { class: 'r', text: 'Setahun penuh' }))));
-  const tb = el('tbody');
-  for (const s of series.slice().reverse()) {
-    const sum = (to) => s.raw.slice(0, to + 1).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
-    const full = s.year === cy ? '—' : fmt(sum(365));
-    tb.append(el('tr', null, el('td', { text: s.year }), el('td', { class: 'r', text: fmt(sum(cutK)) }), el('td', { class: 'r', text: full })));
-  }
-  ytdT.append(tb);
-  const firstK = cur ? cur.raw.findIndex(v => v != null) : -1;
-  $('#trendNote').textContent = (firstK > 0 ? `Data ${cy} baru tersedia sejak ${slotLabel(firstK)}. ` : '') +
-    `Angka di grafik ini memakai satu satelit sehingga lebih kecil daripada total multi-satelit di bagian atas halaman. Tidak terpengaruh pilihan periode.`;
-}
-
-
-/* ---------------- titik api per bulan ---------------- */
-const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-/* Lokasi titik api unik per bulan (tiap lokasi dihitung sekali per bulan), dari bulanan.json:
-   angka yang sama dengan bagian atas halaman saat bulan itu dibuka di mode Riwayat.
-   b = 'ref' (1 satelit S-NPP) atau 'all' (semua satelit). null = tidak tersedia. */
-function uniqMonthly(b, key, year) {
-  if (!BUL) return null;
-  const out = new Array(12).fill(null);
-  for (let k = 0; k < 12; k++) {
-    const m = BUL.months[`${year}-${String(k + 1).padStart(2, '0')}`];
-    if (!m) continue;
-    if (TY && TY.park) {
-      const c = m.ctx && m.ctx[TY.park_id], arr = c && c[b] && c[b][key];
-      if (!arr) continue;
-      const i = BUL.ctxIdx[TY.park_id] ? BUL.ctxIdx[TY.park_id].get(TY.park) : undefined;
-      out[k] = i == null ? 0 : arr[i];
-    } else {
-      const arr = m[b] && m[b][key];
-      if (!arr) continue;
-      const a = state.area, name = a === 'all' ? '__semua__' : a.startsWith('r:') ? a : (S.provinces[+a.slice(2)] || {}).name;
-      const i = BUL.areaIdx.get(name);
-      out[k] = i == null ? 0 : arr[i];
-    }
-  }
-  return out;
-}
-/* Ganti nilai bulanan (jumlah harian) dengan lokasi unik per bulan; status "penuh" tetap dari data harian */
-function withUniq(mo, b, key, year) {
-  if (!mo || !BUL) return mo;
-  const u = uniqMonthly(b, key, year);
-  const vals = mo.vals.map((v, k) => (v == null || !u || u[k] == null ? null : u[k]));
-  return vals.some(v => v != null) ? { ...mo, vals } : null;
-}
-/* Jumlah titik api harian dijumlahkan per bulan. full = semua hari bulan itu ada datanya. */
-function monthlyOf(arr, year) {
-  if (!arr) return null;
-  const vals = new Array(12).fill(0), present = new Array(12).fill(0);
-  TY.days.forEach((md, k) => {
-    const v = arr[k];
-    if (v == null) return;
-    const m = +md.slice(0, 2) - 1;
-    vals[m] += v; present[m]++;
-  });
-  return { vals: vals.map((v, m) => (present[m] ? v : null)), full: present.map((p, m) => p >= daysInMonth(year, m)), present };
-}
-function yearsLabel(ys) {
-  const n = ys.map(Number).sort((a, b) => a - b), parts = [];
-  for (let i = 0; i < n.length; i++) {
-    let j = i;
-    while (j + 1 < n.length && n[j + 1] === n[j] + 1) j++;
-    parts.push(j > i ? `${n[i]}–${n[j]}` : `${n[i]}`);
-    i = j;
-  }
-  return parts.join(', ');
-}
-function barPath(x, y, w, h) {
-  const r = Math.min(4, h, w / 2);
-  return `M${x},${y + h}L${x},${y + r}Q${x},${y} ${x + r},${y}L${x + w - r},${y}Q${x + w},${y} ${x + w},${y + r}L${x + w},${y + h}Z`;
-}
-function renderMonthly(box, legend, ytdT) {
-  const cy = String(TY.current_year);
-  const key = state.conf;
-  const past = Object.keys(TY.series || {}).filter(y => y !== cy).sort();
-  // Batang = lokasi unik per bulan (sama dengan angka di atas saat bulan dibuka); bila bulanan.json
-  // belum ada, jatuh ke jumlah harian. hGap = tahun yang datanya ada tetapi keyakinan tinggi S-NPP belum tepat.
-  const hGap = [];
-  const refDaily = TY.series && TY.series[cy] ? monthlyOf(tSeries(TY.series[cy][key] || {}), +cy) : null;
-  const refCur = withUniq(refDaily, 'ref', key, cy);
-  if (refDaily && !refCur && BUL) hGap.push(cy);
-  const multiCur = withUniq(TY.multi ? monthlyOf(tSeries(TY.multi[key] || {}), +cy) : null, 'all', key, cy);
-  const canRef = !!(refCur && past.length);
-  if (!state.trendBasis || (state.trendBasis === 'ref' && !canRef) || (state.trendBasis === 'multi' && !multiCur)) state.trendBasis = canRef ? 'ref' : 'multi';
-  const basis = state.trendBasis;
-  const cur = basis === 'ref' ? refCur : multiCur;
-  const pastM = {};
-  for (const y of past) {
-    const d = monthlyOf(tSeries(TY.series[y][key] || {}), +y);
-    pastM[y] = withUniq(d, 'ref', key, y);
-    if (d && !pastM[y] && BUL) hGap.push(y);
-  }
-  // Pembanding: jumlah bulanan tiap tahun pilihan (bukan rata-rata)
-  const setYears = (CONFIG.monthlyCompareYears || []).map(String).filter(y => pastM[y]).slice(0, 3);
-  // Tahun yang punya data untuk pilihan ini (mis. riwayat kawasan: "tinggi saja" belum ada untuk arsip lama)
-  const pastOk = past.filter(y => pastM[y]);
-  let cmps = [];
-  if (basis === 'ref' && pastOk.length) {
-    if (state.trendCmp !== 'set' && pastM[state.trendCmp]) {
-      cmps = [state.trendCmp];
-    } else if (setYears.length) {
-      state.trendCmp = 'set'; cmps = setYears;
-    } else {
-      state.trendCmp = pastOk[pastOk.length - 1]; cmps = [state.trendCmp];
-    }
-  }
-  const cmpS = cmps.map(yy => ({ year: yy, vals: pastM[yy].vals, full: pastM[yy].full, color: yearColor(yy) }));
-  const parkC = TY && TY.park ? histLayers().find(l => l.id === TY.park_id) : null;
-
-  // kontrol: basis & pembanding
-  const ctl = $('#trendControls');
-  const basisOpts = [];
-  if (canRef) basisOpts.push(['ref', 'Sebanding antartahun (1 satelit)']);
-  if (multiCur) basisOpts.push(['multi', `Lengkap ${cy} (3 satelit)`]);
-  if (basisOpts.length > 1) ctl.append(segButtons(basisOpts, basis, v => { state.trendBasis = v; renderTrend(); }));
-  if (basis === 'ref' && pastOk.length) {
-    const sel = el('select', { class: 'select', 'aria-label': 'Bandingkan dengan' });
-    if (setYears.length) sel.append(el('option', { value: 'set', text: joinYears(setYears) }));
-    // Satu tahun pembanding saja: tidak perlu didaftar dua kali
-    for (const y of pastOk.slice().reverse()) if (!(setYears.length === 1 && y === setYears[0])) sel.append(el('option', { value: y, text: y }));
-    sel.value = state.trendCmp;
-    sel.addEventListener('change', () => { state.trendCmp = sel.value; renderTrend(); });
-    ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, el('span', { text: 'Bandingkan dengan' }), sel));
-  }
-
-  $('#trendSub').textContent = `Jumlah titik api per bulan · ${tAreaName()} · ${basis === 'ref' ? `satu satelit (${TY.ref_label}) agar sebanding antartahun` : `tiga satelit VIIRS, ${cy}`}`;
-  legend.append(el('span', { class: 'lk' }, el('i', { class: 'bx', style: 'background:var(--accent)' }), cy));
-  for (const c of cmpS) legend.append(el('span', { class: 'lk' }, el('i', { class: 'bx', style: `background:${c.color}` }), c.year));
-
-  const now = new Date(Date.now() + 7 * 3600e3);
-  const curMonth = now.getUTCFullYear() === +cy ? now.getUTCMonth() : 11;
-  const W = Math.max(300, box.clientWidth);
-  const Hh = W < 600 ? 250 : 300;
-  const m = { t: 22, r: 12, b: 26, l: 44 };
-  const pw = W - m.l - m.r, ph = Hh - m.t - m.b;
-  let vmax = 0;
-  for (let k = 0; k < 12; k++) vmax = Math.max(vmax, (cur && cur.vals[k]) || 0, ...cmpS.map(c => c.vals[k] || 0));
-  const sc = niceScale(vmax * 1.02);
-  const y = v => m.t + (1 - v / sc.max) * ph;
-  const nb = 1 + cmpS.length, gap = nb > 1 ? 2 : 0;
-  const gw = pw / 12, bw = Math.max(3, Math.min(nb > 2 ? 16 : 22, (gw * (nb > 1 ? 0.86 : 0.55) - gap * (nb - 1)) / nb));
-  const root = svg('svg', { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: 'img', 'aria-label': 'Grafik jumlah titik api per bulan' });
-  for (let v = 0; v <= sc.max + 1e-9; v += sc.step) {
-    const yy = y(v);
-    root.append(svg('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: v === 0 ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }));
-    const tx = svg('text', { x: m.l - 8, y: yy + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' });
-    tx.textContent = v >= 1000 ? NFC.format(v) : fmt(v); root.append(tx);
-  }
-  let maxK = -1;
-  if (cur) cur.vals.forEach((v, k) => { if (v != null && (maxK < 0 || v > cur.vals[maxK])) maxK = k; });
-  for (let k = 0; k < 12; k++) {
-    const cx = m.l + gw * k + gw / 2;
-    const tx = svg('text', { x: cx, y: Hh - 8, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--muted)' });
-    tx.textContent = BULAN[k]; root.append(tx);
-    const v = cur ? cur.vals[k] : null;
-    const partial = v != null && cur && !cur.full[k];
-    const x0 = cx - (nb * bw + gap * (nb - 1)) / 2;
-    const xCur = x0;
-    let curLabel = null;
-    if (v != null && v > 0) {
-      const top = y(v);
-      root.append(svg('path', { d: barPath(xCur, top, bw, y(0) - top), fill: partial ? 'var(--accent-soft)' : 'var(--accent)', stroke: partial ? 'var(--accent)' : 'none', 'stroke-width': partial ? 1.5 : 0 }));
-      if ((k === maxK || (partial && k === curMonth)) && (nb === 1 || bw >= 9)) {
-        // ditambahkan setelah batang pembanding, dengan halo, supaya tidak tertutup
-        const lt = svg('text', { x: xCur + bw / 2, y: top - 5, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--ink-2)', 'font-variant-numeric': 'tabular-nums',
-          stroke: 'var(--surface)', 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
-        lt.textContent = (v >= 10000 ? NFC.format(v) : fmt(v)) + (partial ? '*' : ''); curLabel = lt;
-      }
-    }
-    cmpS.forEach((cs, i) => {
-      const c = cs.vals[k];
-      if (c == null || c <= 0) return;
-      const top = y(c);
-      // bulan yang datanya tidak lengkap (mis. satelit referensi bolong beberapa hari): dipudarkan
-      root.append(svg('path', { d: barPath(x0 + (i + 1) * (bw + gap), top, bw, y(0) - top), fill: cs.color, 'fill-opacity': cs.full[k] ? 1 : 0.45 }));
-    });
-    if (curLabel) root.append(curLabel);
-    // area hover & klik per bulan
-    const hit = svg('rect', { x: m.l + gw * k, y: m.t, width: gw, height: ph, fill: 'transparent', tabindex: 0, 'aria-label': `${BULAN_PANJANG[k]}` });
-    const tip = () => {
-      const rows = [el('div', { class: 'th', text: `${BULAN_PANJANG[k]} ${cy}` + (partial ? ' · belum penuh' : '') })];
-      rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:var(--accent)' }), basis === 'ref' ? `${cy} (1 satelit)` : `${cy} (3 satelit)`), el('b', { text: v == null ? '–' : fmt(v) })));
-      if (basis === 'ref' && multiCur) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), `${cy} (3 satelit)`), el('b', { text: multiCur.vals[k] == null ? '–' : fmt(multiCur.vals[k]) })));
-      for (const cs of cmpS) rows.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${cs.color}` }), cs.year), el('b', { text: cs.vals[k] == null ? '–' : fmt(cs.vals[k]) + (cs.full[k] ? '' : '*') })));
-      if (cmpS.some(cs => cs.vals[k] != null && !cs.full[k])) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: '* data tidak lengkap sebulan penuh' }));
-      if (clickable) rows.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: `Klik batang untuk membuka bulan itu di peta${basis === 'ref' ? ' (1 satelit)' : ''}` }));
-      return rows;
-    };
-    bindTip(hit, tip);
-    // Batang yang bisa dibuka: tahun berjalan dan tahun pembanding yang punya arsip harian
-    const bars = [{ year: cy, v }, ...cmpS.map(cs => ({ year: cs.year, v: cs.vals[k] }))];
-    const clickable = !!INDEX && bars.some(bb => bb.v != null && INDEX_YB[bb.year]);
-    if (clickable) {
-      hit.style.cursor = 'pointer';
-      hit.addEventListener('click', e => {
-        // tahun = batang di bawah kursor (keyboard: tahun berjalan)
-        let yy = cy;
-        if (e && e.clientX != null && bars.length > 1) {
-          const rr = root.getBoundingClientRect(), px = (e.clientX - rr.left) * (W / rr.width);
-          const bi = Math.max(0, Math.min(bars.length - 1, Math.floor((px - x0 + gap / 2) / (bw + gap))));
-          if (bars[bi].v != null && INDEX_YB[bars[bi].year]) yy = bars[bi].year;
-        }
-        if (!INDEX_YB[yy] || (yy === cy && v == null)) yy = (bars.find(bb => bb.v != null && INDEX_YB[bb.year]) || { year: cy }).year;
-        const last = `${yy}-${String(k + 1).padStart(2, '0')}-${String(daysInMonth(+yy, k)).padStart(2, '0')}`;
-        state.histEnd = clampDate(last); state.histRange = true;
-        // Peta memakai satelit yang sama dengan batang (1 satelit S-NPP atau semua), supaya angkanya sama
-        state.sat = basis === 'ref' || yy !== cy ? 'snpp' : 'all';
-        document.querySelectorAll('#segSat button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.sat)));
-        // Riwayat kawasan: angkanya untuk seluruh kawasan, jadi filter wilayah dilepas
-        if (parkC && state.area !== 'all') { state.area = 'all'; $('#selArea').value = 'all'; }
-        const first = state.histEnd.slice(0, 8) + '01';
-        state.histDays = Math.min(MAX_RANGE, daysBetween(first < yearBounds(state.histEnd.slice(0, 4)).first ? yearBounds(state.histEnd.slice(0, 4)).first : first, state.histEnd) + 1);
-        if (state.mode === 'hist') { renderHistControls(); refreshHist(); } else enterHist();
-        // Riwayat kawasan: sorot kawasannya di peta
-        if (parkC) focusCtx(parkC, TY.park); else window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    }
-    root.append(hit);
-  }
-  box.append(root);
-
-  // tabel
-  // Tabel: selalu memuat tahun pembanding pilihan, walau sedang melihat 3 satelit
-  const tblYears = cmps.length ? cmps : setYears;
-  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Bulan' }), el('th', { class: 'r', text: `${cy} (1 satelit)` }), el('th', { class: 'r', text: `${cy} (3 satelit)` }),
-    ...tblYears.map(yy => el('th', { class: 'r', text: `${yy} (1 satelit)` })))));
-  const tb = el('tbody');
-  for (let k = 0; k < 12; k++) {
-    const a = refCur ? refCur.vals[k] : null, b = multiCur ? multiCur.vals[k] : null;
-    const cs = tblYears.map(yy => pastM[yy].vals[k]);
-    if (a == null && b == null && cs.every(c => c == null)) continue;
-    tb.append(el('tr', null, el('td', { text: BULAN_PANJANG[k] + ((multiCur && b != null && !multiCur.full[k]) || (refCur && a != null && !refCur.full[k]) ? '*' : '') }),
-      el('td', { class: 'r', text: a == null ? '–' : fmt(a) }), el('td', { class: 'r', text: b == null ? '–' : fmt(b) }),
-      ...cs.map((c, i) => el('td', { class: 'r', text: c == null ? '–' : fmt(c) + (pastM[tblYears[i]].full[k] ? '' : '*') }))));
-  }
-  ytdT.append(tb);
-  $('#trendNote').textContent = (BUL
-    ? 'Jumlah per bulan = jumlah lokasi titik api dalam sebulan; lokasi yang menyala beberapa hari dihitung sekali, sama dengan angka di bagian atas halaman saat bulan itu dibuka di mode Riwayat. '
-    : 'Jumlah per bulan = jumlah titik api harian selama sebulan, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ') +
-    'Tanda * dan batang pudar = bulan belum penuh. ' +
-    (basis === 'ref' ? `Perbandingan antartahun memakai satu satelit (${TY.ref_label}); angka lengkap tiga satelit ada di tabel.` : 'Tiga satelit hanya tersedia untuk tahun berjalan, jadi tidak dibandingkan dengan tahun lain.') +
-    (basis === 'ref' && hGap.length ? ` Data keyakinan tinggi satu satelit untuk ${joinYears(hGap.sort())} belum tersedia.` : '');
-}
-
-/* ---------------- rentang tanggal yang sama di tahun-tahun lain ---------------- */
-function rangeLabel(from, to, long) {
-  const [, m1, d1] = from.split('-').map(Number), [, m2, d2] = to.split('-').map(Number);
-  const B = long ? BULAN_PANJANG : BULAN;
-  if (from === to) return `${d1} ${B[m1 - 1]}`;
-  if (m1 === m2) return `${d1}–${d2} ${B[m1 - 1]}`;
-  return `${d1} ${BULAN[m1 - 1]} – ${d2} ${BULAN[m2 - 1]}`;
-}
-function renderSameDate(box, legend, ytdT) {
-  const cy = String(TY.current_year);
-  const key = state.conf;
-  const lastIso = TY.last_date;
-  const ctl = $('#trendControls');
-  if (!lastIso || !TY.series[cy]) {
-    box.append(el('div', { class: 'empty', text: `Data ${cy} untuk perbandingan antartahun belum tersedia.` }));
-    $('#trendSub').textContent = ''; $('#trendNote').textContent = '';
-    return;
-  }
-  // Rentang dalam tahun berjalan; hari ini belum lengkap, jadi maksimum kemarin.
-  const jan1 = `${cy}-01-01`;
-  const clampCy = iso => (iso < jan1 ? jan1 : iso > lastIso ? lastIso : iso);
-  const histOn = state.mode === 'hist' && !!state.histEnd;
-  let preset = state.cmpPreset || (histOn ? 'riwayat' : 'bulan');
-  if (preset === 'riwayat' && !histOn) preset = 'bulan';
-  let from, to;
-  if (preset === 'custom' && state.cmpFrom && state.cmpTo) {
-    from = state.cmpFrom; to = state.cmpTo;
-  } else {
-    if (preset === 'custom') preset = histOn ? 'riwayat' : 'bulan';
-    // titik akhir: tanggal Riwayat (dipindah ke tahun berjalan) atau tanggal lengkap terakhir
-    to = clampCy(histOn ? `${cy}${state.histEnd.slice(4)}` : lastIso);
-    if (preset === 'riwayat') {
-      const hf = isoDateAddDays(state.histEnd, 1 - state.histDays);
-      from = hf.slice(0, 4) === state.histEnd.slice(0, 4) ? `${cy}${hf.slice(4)}` : jan1;
-    } else if (preset === '1') from = to;
-    else if (preset === '7') from = isoDateAddDays(to, -6);
-    else from = to.slice(0, 8) + '01';  // sejak awal bulan
-  }
-  from = clampCy(from); to = clampCy(to);
-  if (from > to) [from, to] = [to, from];
-
-  const pos = {}; TY.days.forEach((d, k) => { pos[d] = k; });
-  const mmdd = d => `${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-  // Jumlah titik api pada rentang tanggal yang sama di tahun `year`
-  const sumRange = (arr, year) => {
-    let sum = 0, n = 0, tot = 0;
-    if (!arr) return { v: null, n, tot };
-    const a = Date.UTC(+year, +from.slice(5, 7) - 1, +from.slice(8));
-    const b = Date.UTC(+year, +to.slice(5, 7) - 1, +to.slice(8));
-    for (let t = a; t <= b; t += 864e5) {
-      tot++;
-      const v = arr[pos[mmdd(new Date(t))]];
-      if (v != null) { sum += v; n++; }
-    }
-    return { v: n ? sum : null, n, tot };
-  };
-  const years = [cy, ...(CONFIG.monthlyCompareYears || []).map(String).filter(y => y !== cy && TY.series[y] && TY.series[y][key])];
-  const multiArr = TY.multi ? tSeries(TY.multi[key] || {}) : null;
-  const rows = years.map(y => ({
-    year: y, color: y === cy ? 'var(--accent)' : yearColor(y),
-    r: sumRange(tSeries(TY.series[y][key] || {}), y),
-    m: y === cy ? sumRange(multiArr, y) : null
-  }));
-
-  // kontrol
-  const mkDate = (val, label, onPick) => {
-    const inp = el('input', { type: 'date', class: 'select', min: jan1, max: lastIso, value: val, 'aria-label': label });
-    inp.addEventListener('change', () => { if (inp.value) onPick(inp.value); });
-    return inp;
-  };
-  const pick = (f, t2) => { state.cmpPreset = 'custom'; state.cmpFrom = clampCy(f); state.cmpTo = clampCy(t2); if (state.cmpFrom > state.cmpTo) [state.cmpFrom, state.cmpTo] = [state.cmpTo, state.cmpFrom]; renderTrend(); };
-  ctl.append(el('label', { style: 'display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap' },
-    el('span', { text: 'Dari' }), mkDate(from, 'Dari tanggal', v => pick(v, to < v ? v : to)),
-    el('span', { text: 's.d.' }), mkDate(to, 'Sampai tanggal', v => pick(from > v ? v : from, v))));
-  const presets = [['1', '1 hari'], ['7', '7 hari'], ['bulan', 'Sejak awal bulan']];
-  if (histOn) presets.push(['riwayat', 'Ikuti Riwayat']);
-  ctl.append(segButtons(presets, preset, v => { state.cmpPreset = v; renderTrend(); }));
-
-  const label = rangeLabel(from, to, true);
-  const nDays = daysBetween(from, to) + 1;
-  $('#trendSub').textContent = `Titik api ${from === to ? 'pada' : ''} ${label} di tiap tahun${nDays > 1 ? ` (${nDays} hari)` : ''} · ${tAreaName()} · satu satelit (${TY.ref_label}) agar sebanding antartahun`.replace('  ', ' ');
-
-  // batang horizontal per tahun
-  const max = Math.max(1, ...rows.map(r => r.r.v || 0));
-  const list = el('div', { class: 'hbars', style: 'margin-top:6px;max-width:760px' });
-  for (const r of rows) {
-    const v = r.r.v, partial = v != null && r.r.n < r.r.tot;
-    const full = `${label} ${r.year}`;
-    const row = el('div', { class: 'hbar', style: 'grid-template-columns:56px 1fr', role: 'img', 'aria-label': `${full}: ${v == null ? 'tidak ada data' : fmt(v) + ' titik api'}` },
-      el('div', { class: 'name', title: full }, el('span', { text: r.year, style: r.year === cy ? 'font-weight:650' : '' })),
-      el('div', { class: 'track' },
-        v == null ? el('span', { class: 'val', text: 'tidak ada data' })
-          : el('div', { class: 'bar', style: `width:calc(${v / max} * (100% - 64px));background:${r.color}` }),
-        v == null ? '' : el('span', { class: 'val', text: fmt(v) + (partial ? '*' : '') })));
-    bindTip(row, () => {
-      const t = [el('div', { class: 'th', text: full }),
-        el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: `background:${r.color}` }), '1 satelit'), el('b', { text: v == null ? '–' : fmt(v) }))];
-      if (nDays > 1 && v != null) t.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), 'Rata-rata per hari'), el('b', { text: fmt1(v / r.r.n) })));
-      if (r.m && r.m.v != null) t.push(el('div', { class: 'tr' }, el('span', { class: 'k' }, el('i', { style: 'background:transparent' }), '3 satelit'), el('b', { text: fmt(r.m.v) })));
-      if (partial) t.push(el('div', { class: 'th', style: 'margin:4px 0 0', text: `Data hanya ${r.r.n} dari ${r.r.tot} hari` }));
-      return t;
-    });
-    list.append(row);
-  }
-  box.append(list);
-
-  // kalimat ringkas: tahun berjalan dibanding tiap tahun
-  const vc = rows[0].r.v;
-  const parts = rows.slice(1).filter(r => r.r.v && vc != null).map(r => {
-    const ratio = vc / r.r.v;
-    return ratio >= 1 ? `${NF1.format(ratio)} kali ${r.year}` : `${PCT.format(ratio)} dari ${r.year}`;
-  });
-  if (parts.length) box.append(el('p', { class: 'sub', style: 'margin:10px 0 0', text: `Dibanding ${from === to ? 'tanggal' : 'rentang'} yang sama, titik api ${cy} = ${parts.join(' · ')}.` }));
-
-  // tabel
-  ytdT.append(el('thead', null, el('tr', null, el('th', { text: 'Tahun' }), el('th', { class: 'r', text: `${label} (1 satelit)` }),
-    el('th', { class: 'r', text: 'Rata-rata per hari' }), el('th', { class: 'r', text: 'Hari berdata' }))));
-  const tb = el('tbody');
-  const addRow = (name, x) => tb.append(el('tr', null, el('td', { text: name }), el('td', { class: 'r', text: x.v == null ? '–' : fmt(x.v) }),
-    el('td', { class: 'r', text: x.v == null ? '–' : fmt1(x.v / x.n) }), el('td', { class: 'r', text: `${x.n}/${x.tot}` })));
-  for (const r of rows) {
-    addRow(r.year, r.r);
-    if (r.m && r.m.v != null) addRow(`${r.year} (3 satelit)`, r.m);
-  }
-  ytdT.append(tb);
-  $('#trendNote').textContent = `Hari ini belum lengkap, jadi tanggal terakhir yang bisa dipilih adalah ${fmtDateLong(lastIso)}. ` +
-    'Angka satu hari sangat dipengaruhi awan, asap tebal, dan posisi lintasan satelit; rentang beberapa hari lebih stabil untuk dibandingkan. ' +
-    `Jumlah dalam rentang = jumlah titik api harian, jadi lokasi yang menyala beberapa hari ikut terhitung tiap hari. ` +
-    `Perbandingan memakai satu satelit (${TY.ref_label}); angka tiga satelit ${cy} ada di tabel.` + (rows.some(r => r.r.v != null && r.r.n < r.r.tot) ? ' Tanda * = data tidak lengkap untuk seluruh rentang.' : '');
 }
 
 /* ---------------- kualitas udara ---------------- */
@@ -2816,7 +2040,7 @@ function bindControls() {
   const onSeg = (id, key) => {
     document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener('click', () => {
       state[key] = b.dataset.v; syncSeg(id, key);
-      key === 'trend' ? renderTrend() : update();
+      update();
     }));
     syncSeg(id, key);
   };
@@ -2826,7 +2050,7 @@ function bindControls() {
     if (state.mode === 'hist') exitHist(v); else { state.win = v; syncWinSeg(); update(); }
   }));
   syncWinSeg();
-  onSeg('segConf', 'conf'); onSeg('segSat', 'sat'); onSeg('segTrend', 'trend');
+  onSeg('segConf', 'conf'); onSeg('segSat', 'sat');
   const sel = $('#selArea');
   const og = el('optgroup', { label: 'Wilayah besar' });
   for (const r of S.regions) og.append(el('option', { value: 'r:' + r, text: r }));
@@ -2851,8 +2075,6 @@ function bindControls() {
     document.documentElement.dataset.theme = next; lsSet('tema', next); onTheme();
   });
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme);
-  let rt = 0;
-  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderTrend, 150); });
 }
 function onTheme() {
   if (!map) return;
@@ -2860,7 +2082,6 @@ function onTheme() {
   setWind(); setAir(); setAerosol(); renderLegend();
   if (provLayer) provLayer.setStyle(boundaryStyle);
   hsLayer._redraw();
-  renderTrend();
 }
 function zoomToArea() {
   if (!PROV_GJ) return;
@@ -2898,12 +2119,6 @@ async function main() {
   }
   [YOY, WIND, AIR, AERO, PROV_GJ, INDEX] = await Promise.all([getJSON('yoy.json', true), getJSON('angin.json', true), getJSON('udara.json', true), getJSON('aerosol.json', true), getJSON('provinsi.geojson', true),
     fetch(CONFIG.archiveUrl + 'harian/indeks.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null)]);
-  BUL = await fetch(CONFIG.archiveUrl + 'harian/bulanan.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
-  if (BUL) {
-    BUL.areaIdx = new Map(BUL.areas.map((a, i) => [a, i]));
-    BUL.ctxIdx = {};
-    for (const id in BUL.ctx || {}) BUL.ctxIdx[id] = new Map(BUL.ctx[id].map((n, i) => [n, i]));
-  }
   if (INDEX && INDEX.days && INDEX.days.length) {
     INDEX_MAP = new Map(INDEX.days.map(d => [d.d, d]));
     INDEX_DAYS = INDEX.days.map(d => d.d).sort();
@@ -2936,14 +2151,6 @@ async function main() {
   renderMethod();
   if (startHist) enterHist(); else update();
   if (state.area !== 'all') zoomToArea();
-  // Tautan ?kawasan=<nama>: buka riwayat kawasan itu di grafik perbandingan
-  if (state._tparkName) {
-    const want = ctxNorm(state._tparkName);
-    for (const c of histLayers()) {
-      const p = parkList(c).find(o => ctxNorm(o.name) === want);
-      if (p) { setTrendPark({ id: c.id, name: p.name }); break; }
-    }
-  }
   $('#mapLoading').remove();
 }
 main();

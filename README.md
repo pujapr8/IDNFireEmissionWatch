@@ -14,7 +14,7 @@ Dashboard publik pemantauan titik api kebakaran hutan dan lahan serta pergerakan
   - estimasi PM2.5 per kota (kotak berwarna kategori ISPU).
 - **Asap dan karbon monoksida (bola dunia):** dua bola dunia berdampingan, indeks aerosol UV dan karbon monoksida (CO) Sentinel-5P, masing-masing rata-rata 3 hari (hari itu dan dua hari sebelumnya). Garis waktu mulai 1 Agustus 2026; bola bisa diseret, diperbesar, dan diputar per hari. Butuh kunci CDSE yang sama dengan lapisan aerosol.
 - **Mode Riwayat:** buka kondisi hari mana pun sejak 1 Januari 2026 (1, 7, atau 30 hari), geser slider atau tekan *Putar* untuk melihat perkembangannya hari demi hari. Lapisan aerosol Sentinel-5P ikut berganti sesuai tanggal. Tautannya bisa dibagikan, mis. `?tanggal=2026-09-15&durasi=7`.
-- Peringkat provinsi dan kabupaten/kota, tren 7 hari, dan **grafik per bulan**: jumlah titik api tiap bulan penuh dibanding rata-rata atau satu tahun pembanding (2015, 2019, 2023–2025). Klik batang bulan untuk membuka bulan itu di mode Riwayat. Tampilan kumulatif dan harian tetap tersedia.
+- Peringkat provinsi dan kabupaten/kota dan tren 7 hari. Jumlah titik api per bulan atau per tahun dibaca dari mode Riwayat (pilih rentangnya).
 - Persentase titik api di lahan gambut/konsesi beserta peringkat konsesinya, bila Anda menambahkan datanya.
 - Unduh CSV sesuai filter, arsip harian permanen, panel metodologi.
 
@@ -35,7 +35,7 @@ Dashboard publik pemantauan titik api kebakaran hutan dan lahan serta pergerakan
 
    Pipeline hanya meminta **satu gambar per pembaruan** (±12 permintaan per hari), jadi kuota gratis CDSE tidak bertambah berapa pun jumlah pengunjung.
 4. **Aktifkan Pages.** Buka *Settings → Pages → Build and deployment → Source* dan pilih **GitHub Actions**.
-5. **Isi arsip awal.** Buka tab *Actions*, pilih **Isi arsip awal (backfill)**, lalu klik *Run workflow*. Proses ini mengunduh batas kabupaten/kota, mengisi arsip harian sejak 1 Januari 2026 (untuk mode Riwayat dan grafik per bulan), serta data tahun-tahun pembanding. Perkiraan 30–90 menit. Bila terhenti di tengah jalan, jalankan lagi: hari yang sudah tersimpan dilewati. Menjalankannya lagi juga melengkapi hari yang belum punya data salah satu satelit, misalnya S-NPP, bila FIRMS kini sudah menyediakannya. Hari yang tetap tanpa data S-NPP tidak dihitung sebagai nol di grafik perbandingan dan disebut di log (baris "RINGKASAN").
+5. **Isi arsip awal.** Buka tab *Actions*, pilih **Isi arsip awal (backfill)**, lalu klik *Run workflow*. Proses ini mengunduh batas kabupaten/kota, mengisi arsip harian sejak 1 Januari 2026 (untuk mode Riwayat), serta data tahun-tahun pembanding. Perkiraan 30–90 menit. Bila terhenti di tengah jalan, jalankan lagi: hari yang sudah tersimpan dilewati. Menjalankannya lagi juga melengkapi hari yang belum punya data salah satu satelit, misalnya S-NPP, bila FIRMS kini sudah menyediakannya. Hari yang tetap tanpa data S-NPP tidak dihitung sebagai nol di hitungan satu satelit dan disebut di log (baris "RINGKASAN").
 6. **Terbitkan pertama kali.** Di tab *Actions*, pilih **Perbarui data** lalu klik *Run workflow*. Setelah selesai, alamat situs muncul di ringkasan job, biasanya `https://<akun>.github.io/<repo>/`. Selanjutnya workflow ini berjalan sendiri tiap 2 jam.
 
 **Opsional: lokasi titik api tahun pembanding.** Supaya tanggal di tahun 2015, 2019, dan 2023 bisa dibuka di mode Riwayat (peta, peringkat, unduh CSV), jalankan workflow **Unduh lokasi titik api tahun lalu** di tab *Actions*. Butuh beberapa jam; hasilnya di-commit tiap satu tahun selesai, jadi bila terhenti tinggal dijalankan lagi. Setelah selesai, jalankan **Perbarui data**. Satelit mengikuti yang tersedia pada tahun itu (2015 hanya S-NPP; 2019 dan 2023 S-NPP + NOAA-20), dan citra aerosol hanya ada sejak 2018.
@@ -85,7 +85,7 @@ Sekali saja (atau untuk mengisi celah): pipeline/backfill_harian.py
 | `boundaries/daratan_indonesia.geojson`, `negara_tetangga.geojson` | Penyaring Natural Earth: buang titik di negara tetangga dan laut lepas (dibuat dengan `pipeline/prepare_boundaries_ne.py`) |
 | `context/` | Lapisan konteks: `taman_nasional.geojson` (54 taman nasional, WDPA 2019) dan opsional gambut/konsesi |
 | `data/archive/daily_<tahun>.csv` | Titik api harian per provinsi, multi-satelit |
-| `data/archive/ref_daily_<tahun>.csv` | Sama, satu satelit (untuk perbandingan antartahun) |
+| `data/archive/ref_daily_<tahun>.csv` | Sama, satu satelit (batang 7 hari di mode Riwayat dengan filter 1 satelit) |
 | `data/archive/raw/<tahun>/<tanggal>.csv.gz` | Semua deteksi nominal/high per hari, lengkap dengan provinsi, kabupaten, dan konteks |
 | `data/archive/harian/<tahun>/<tanggal>.json` | Titik api unik per hari (sesudah deduplikasi) untuk mode Riwayat, ±60 byte per titik |
 | `data/archive/harian/indeks.json` | Daftar tanggal yang tersedia beserta total dan jumlah satelitnya |
@@ -100,7 +100,8 @@ Di kedua CSV harian, kolom `nh` berisi jumlah titik nominal+tinggi dan kolom `h`
 - **Deduplikasi:** deteksi di sel grid 0,0036° (~400 m) pada tanggal WIB yang sama dihitung satu titik. Tanpa ini, satu kebakaran bisa terhitung 2–3 kali karena ketiga satelit lewat berdekatan.
 - **Perbandingan antartahun:** hanya VIIRS S-NPP (tersedia sejak 2012, jadi 2015 ikut), karena NOAA-20/21 belum ada di tahun-tahun awal. Karena itu angkanya lebih kecil dari total multi-satelit. Hari yang data S-NPP-nya kosong atau bolong (jauh di bawah satelit lain, `EMPTY_SAT_*`) tidak dihitung, jadi bulannya tampil "belum penuh"; aturan ini juga diterapkan ke arsip yang ditulis sebelum aturannya ada.
 - **Finalisasi harian:** satu tanggal masuk arsip pukul 09.00 WIB keesokan harinya, memberi waktu untuk keterlambatan data NRT.
-- **Hitungan per bulan vs. periode:** grafik per bulan menghitung tiap lokasi (sel ~400 m) sekali per bulan, sama dengan angka besar di mode Riwayat saat bulan itu dibuka (klik batangnya; filter satelit ikut menyesuaikan). Angkanya dibuat `pipeline/bulanan.py` ke `data/archive/harian/bulanan.json` setiap pembaruan (hanya bulan yang berubah dihitung ulang; semua: `python -m pipeline.bulanan --ulang`). Grafik Tanggal sama, Kumulatif, dan Harian tetap menjumlahkan titik api harian (lokasi yang menyala lima hari terhitung lima kali); angka itu tampil di mode Riwayat sebagai "Dijumlahkan per hari".
+- **Hitungan periode:** angka besar di mode Riwayat menghitung tiap lokasi (sel ~400 m) sekali dalam periode yang dipilih; untuk jumlah per bulan, pilih rentang satu bulan.
+- **Keyakinan tinggi:** titik dihitung berkeyakinan tinggi bila dinilai tinggi oleh satelit mana pun yang mendeteksinya. Dengan filter 1 satelit (S-NPP), yang dihitung adalah lokasi yang terdeteksi S-NPP dan berkeyakinan tinggi. Pada tahun dengan lebih dari satu satelit (sejak 2018), penilaian tinggi bisa berasal dari NOAA-20/21.
 - **Peta 30 hari:** lebih dari 7 hari, titik digabung menjadi sel kepadatan 0,1° (±11 km) supaya peta tetap terbaca dan ringan.
 - **Angin:** level 925 hPa (~750 m), setara angin 2.500 kaki di peta kabut asap ASMC.
 
@@ -144,9 +145,8 @@ python -m pipeline.prep_taman_nasional SHP_Kawasan_Lindung_Indonesia_May2019.zip
 - Nama mengikuti WDPA 2019, jadi taman nasional hasil penggabungan atau penetapan setelah 2019 tercatat dengan nama lamanya (mis. Manupeu Tanadaru dan Laiwangi Wanggameti, kini TN Matalawa; Berbak dan Sembilang, kini TN Berbak Sembilang). Nama barunya dicatat di kolom `alias` (`ALIASES` di `pipeline/prep_taman_nasional.py`), tampil di bawah nama dan ikut dicari di dashboard. Untuk memperbarui, ganti file WDPA lalu jalankan perintah di atas.
 - Kolom provinsi diisi provinsi yang memuat minimal 10% luas taman.
 - Di kartu "Di mana titik api berada", daftar taman nasional bisa dicari (nama, nama baru, atau provinsi) dan dibuka seluruhnya, termasuk taman tanpa titik api.
-- Riwayat per taman nasional: tombol di kolom "Riwayat" (atau pilihan "Wilayah grafik" di kartu "Dibanding bulan-bulan sebelumnya") menampilkan grafik perbandingan antartahun untuk satu taman, dalam keempat tampilan (per bulan, tanggal sama, kumulatif, harian). Klik bulan untuk membukanya di peta Riwayat dengan batas taman disorot. Tautan langsung: `?kawasan=Sebangau`.
-- Datanya `data/archive/harian/riwayat_taman_nasional.json`, dibuat `pipeline/riwayat_konteks.py` dari arsip harian setiap pembaruan (hanya hari yang berubah yang dibaca ulang; hitung ulang semua: `python -m pipeline.riwayat_konteks --ulang`). Isinya per hari per taman: titik api semua satelit dan titik yang terdeteksi S-NPP (nominal + tinggi, tinggi saja). Perbandingan antartahun memakai S-NPP; hari yang data S-NPP-nya kosong/bolong tidak dihitung.
-- Arsip 2019 dan 2023 yang diunduh sebelum ada kolom `hsats` belum bisa memisahkan "keyakinan tinggi" per satelit, jadi grafik taman untuk "Keyakinan tinggi saja" belum menampilkan tahun itu. Jalankan workflow **Unduh lokasi titik api tahun lalu** sekali lagi: hari berformat lama diunduh ulang otomatis.
+- Jumlah titik api per taman untuk periode tertentu: buka mode Riwayat dengan rentang yang diinginkan; tabel taman nasional menghitung ulang untuk rentang itu.
+- `pipeline/riwayat_konteks.py` tetap membuat `data/archive/harian/riwayat_taman_nasional.json` (hitungan harian per taman) setiap pembaruan; dashboard tidak lagi menampilkannya, tetapi datanya dipakai untuk menandai hari yang data S-NPP-nya kosong/bolong.
 - WDPA bebas dipakai untuk keperluan nonkomersial dengan menyebut sumbernya (UNEP-WCMC & IUCN, Protected Planet); atribusinya sudah tampil di bagian Sumber dashboard.
 
 ---

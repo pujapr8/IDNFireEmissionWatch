@@ -26,7 +26,6 @@ from . import harian as HR
 from . import s5p as S5
 from . import retag_konteks as RK
 from . import riwayat_konteks as RW
-from . import bulanan as BU
 from . import weather as W
 
 log = logging.getLogger("update")
@@ -244,11 +243,11 @@ def main(argv=None):
         changed += dropped
     except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
         log.warning("riwayat per kawasan gagal: %s", e)
-    # Lokasi titik api unik per bulan (angka grafik per bulan = angka mode Riwayat sebulan)
-    try:
-        changed += BU.run(ctx_layers, provinces)
-    except Exception as e:  # noqa: BLE001 - tidak boleh menggagalkan pembaruan titik api
-        log.warning("hitungan bulanan gagal: %s", e)
+    # Hitungan bulanan lama (grafik per bulan sudah tidak dipakai): hapus filenya
+    old_bulanan = HR.DAY_DIR / "bulanan.json"
+    if old_bulanan.exists():
+        old_bulanan.unlink()
+        changed.append(str(old_bulanan.relative_to(C.ROOT)) + " (dihapus)")
     if changed:
         log.info("arsip berubah: %d file (%s%s)", len(changed), ", ".join(changed[:4]),
                  ", ..." if len(changed) > 4 else "")
