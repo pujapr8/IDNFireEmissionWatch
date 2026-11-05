@@ -1,8 +1,14 @@
 [
  {
   "id": "taman_nasional",
-  "sha1": "8966e08c2825",
+  "sha1": "b66a098c3833",
   "name_field": "nama",
   "group_field": "provinsi"
+ },
+ {
+  "id": "zonasi_tn",
+  "sha1": "011d1b1b095d",
+  "name_field": "zona",
+  "group_field": "kawasan"
  }
 ]
