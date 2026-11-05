@@ -83,7 +83,7 @@ Sekali saja (atau untuk mengisi celah): pipeline/backfill_harian.py
 | `pipeline/fetch_boundaries.py` | Unduh batas kabupaten/kota (geoBoundaries) |
 | `boundaries/provinsi.geojson` | Batas 38 provinsi: basis hitungan **dan** peta (CC BY 4.0). Bisa diganti file 38 provinsi lain asal ada kolom nama (`PROVINSI`, `name`, atau `nama`) |
 | `boundaries/daratan_indonesia.geojson`, `negara_tetangga.geojson` | Penyaring Natural Earth: buang titik di negara tetangga dan laut lepas (dibuat dengan `pipeline/prepare_boundaries_ne.py`) |
-| `context/` | Lapisan konteks: `taman_nasional.geojson` (54 taman nasional, WDPA 2019) dan opsional gambut/konsesi |
+| `context/` | Lapisan konteks: `taman_nasional.geojson` (53 taman nasional) dan `zonasi_tn.geojson` (zonanya), keduanya dari data Zonasi Kawasan Taman Nasional Ditjen KSDAE (batas Juli 2021), plus opsional gambut/konsesi |
 | `data/archive/daily_<tahun>.csv` | Titik api harian per provinsi, multi-satelit |
 | `data/archive/ref_daily_<tahun>.csv` | Sama, satu satelit (batang 7 hari di mode Riwayat dengan filter 1 satelit) |
 | `data/archive/raw/<tahun>/<tanggal>.csv.gz` | Semua deteksi nominal/high per hari, lengkap dengan provinsi, kabupaten, dan konteks |
@@ -132,23 +132,24 @@ Hasilnya:
 
 Arsip lama tidak perlu diunduh ulang: setiap kali daftar lapisan atau isi filenya berubah, pembaruan berikutnya menandai ulang seluruh arsip harian dan deteksi mentah (`pipeline/retag_konteks.py`, beberapa detik sampai beberapa menit). Bisa juga dijalankan manual: `python -m pipeline.retag_konteks --paksa`.
 
-### Taman nasional
+### Taman nasional dan zonasinya
 
-`context/taman_nasional.geojson` dibuat dari World Database on Protected Areas (WDPA) Indonesia, Mei 2019:
+`context/taman_nasional.geojson` dan `context/zonasi_tn.geojson` dibuat dari data Zonasi Kawasan Taman Nasional (Ditjen KSDAE, Kementerian LHK, batas administrasi Juli 2021):
 
 ```bash
-python -m pipeline.prep_taman_nasional SHP_Kawasan_Lindung_Indonesia_May2019.zip
+python -m pipeline.prep_zonasi_tn Zonasi_Kawasan_Taman_Nasional.shp
 ```
 
-- Diambil semua kawasan berpenetapan taman nasional (54), kecuali taman nasional laut murni karena titik api hanya ada di darat. Wasur (Papua Selatan) ikut dimasukkan walau di WDPA 2019 hanya tercatat sebagai situs Ramsar, karena batasnya sama dengan taman nasionalnya.
-- Dua catatan ganda dibuang: "Bantimurung" (berada di dalam Bantimurung Bulusaraung) dan "Gunung Boliyohuto" (di WDPA 2019 batasnya sama dengan Gunung Gede - Pangrango).
-- Nama mengikuti WDPA 2019, jadi taman nasional hasil penggabungan atau penetapan setelah 2019 tercatat dengan nama lamanya (mis. Manupeu Tanadaru dan Laiwangi Wanggameti, kini TN Matalawa; Berbak dan Sembilang, kini TN Berbak Sembilang). Nama barunya dicatat di kolom `alias` (`ALIASES` di `pipeline/prep_taman_nasional.py`), tampil di bawah nama dan ikut dicari di dashboard. Untuk memperbarui, ganti file WDPA lalu jalankan perintah di atas.
+- 53 taman nasional, 322 poligon zona (satu per taman & zona): inti, rimba, perlindungan bahari, rehabilitasi, tradisional, pemanfaatan, religi/budaya/sejarah, khusus. Sembilan poligon kecil tanpa nama dan zona ("belum ada SK penetapan", total ±5.700 ha) dicatat sebagai zona "belum ditetapkan" dan dimasukkan ke taman yang berbatasan langsung.
+- Batas tiap taman = gabungan zonanya yang sudah disederhanakan (~20 m, batas antarzona tetap berimpit), jadi titik api di dalam taman selalu jatuh di salah satu zonanya dan jumlah per zona pas dengan total taman. Bila ada titik yang jatuh tepat di celah garis antarzona, titik itu tampil sebagai "di luar data zonasi" (sangat jarang).
+- Sebelumnya batas taman memakai WDPA 2019 (`pipeline/prep_taman_nasional.py`, masih ada untuk rujukan). Batas KSDAE lebih baru dan satu sumber dengan zonasi; perbedaan terbesar di Sebangau (536 ribu ha vs 594 ribu ha di WDPA). Saat berkas diganti, pembaruan berikutnya menandai ulang seluruh arsip otomatis.
+- Nama mengikuti data KSDAE. Taman yang pengelolaannya kini digabung dicatat di kolom `alias` (mis. Berbak dan Sembilang, kini TN Berbak Sembilang), tampil di bawah nama dan ikut dicari.
+- Di dashboard: lapisan peta "Zonasi taman nasional" (diunduh saat pertama dinyalakan; warna membedakan zona inti, rimba, dan zona lain, nama zona di tooltip), baris "Zona" di popup titik api, kolom `zonasi_tn` di CSV, rincian "Menurut zona" di kartu taman nasional (klik zona untuk menyaring tabel taman), dan rincian per zona di tampilan Per tahun.
 - Kolom provinsi diisi provinsi yang memuat minimal 10% luas taman.
 - Di kartu "Di mana titik api berada", daftar taman nasional bisa dicari (nama, nama baru, atau provinsi) dan dibuka seluruhnya, termasuk taman tanpa titik api.
 - Jumlah titik api per taman untuk periode tertentu: buka mode Riwayat dengan rentang yang diinginkan; tabel taman nasional menghitung ulang untuk rentang itu.
-- **Per tahun:** tombol "Per tahun" di kartu taman nasional menampilkan lokasi titik api per taman untuk tiap tahun berarsip (2015, 2019, 2023, tahun berjalan), tiap lokasi dihitung sekali dalam setahun. Angkanya ikut filter Satelit dan Keyakinan, tidak terpengaruh Periode dan Wilayah. Klik nama taman untuk akumulasi per bulan (1 Januari s.d. akhir tiap bulan). Cara hitungnya sama dengan mode Riwayat; datanya `data/archive/harian/tahunan_taman_nasional.json`, dibuat `pipeline/tahunan_konteks.py` setiap pembaruan (hanya tahun yang berubah dihitung ulang; semua: `python -m pipeline.tahunan_konteks --ulang`).
+- **Per tahun:** tombol "Per tahun" di kartu taman nasional menampilkan lokasi titik api per taman untuk tiap tahun berarsip (2015, 2019, 2023, tahun berjalan), tiap lokasi dihitung sekali dalam setahun. Angkanya ikut filter Satelit, Keyakinan, dan Zona, tidak terpengaruh Periode dan Wilayah. Klik nama taman untuk akumulasi per bulan (1 Januari s.d. akhir tiap bulan). Cara hitungnya sama dengan mode Riwayat; datanya `data/archive/harian/tahunan_taman_nasional.json`, dibuat `pipeline/tahunan_konteks.py` setiap pembaruan (hanya tahun yang berubah dihitung ulang; semua: `python -m pipeline.tahunan_konteks --ulang`).
 - `pipeline/riwayat_konteks.py` tetap membuat `data/archive/harian/riwayat_taman_nasional.json` (hitungan harian per taman) setiap pembaruan; dashboard tidak lagi menampilkannya, tetapi datanya dipakai untuk menandai hari yang data S-NPP-nya kosong/bolong.
-- WDPA bebas dipakai untuk keperluan nonkomersial dengan menyebut sumbernya (UNEP-WCMC & IUCN, Protected Planet); atribusinya sudah tampil di bagian Sumber dashboard.
 
 ---
 

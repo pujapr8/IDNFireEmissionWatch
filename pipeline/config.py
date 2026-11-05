@@ -146,7 +146,9 @@ CONTEXT_LAYERS = [
         "simplify_m": 100,
     },
     {
-        # Dibuat dari WDPA Indonesia: python -m pipeline.prep_taman_nasional <zip WDPA>
+        # Dibuat dari data Zonasi Kawasan Taman Nasional (Ditjen KSDAE, batas Juli 2021):
+        #   python -m pipeline.prep_zonasi_tn <Zonasi_Kawasan_Taman_Nasional.shp>
+        # Batas taman = gabungan zonanya (lapisan "zonasi_tn" di bawah).
         "id": "taman_nasional",
         "label": "Taman nasional",
         "path": "context/taman_nasional.geojson",
@@ -154,10 +156,27 @@ CONTEXT_LAYERS = [
         "group_field": "provinsi",
         "group_label": "Provinsi",
         "alias_field": "alias",  # nama lain/nama baru: ditampilkan & ikut dicari
+        "zones_layer": "zonasi_tn",  # rincian per zona di kartu & tabel per tahun
         "color": "#22a38f",
         "simplify_m": 120,
-        "source": "World Database on Protected Areas (UNEP-WCMC & IUCN), Mei 2019",
-        "source_url": "https://www.protectedplanet.net/country/IDN",
+        "source": "Ditjen KSDAE, Kementerian Lingkungan Hidup dan Kehutanan: Zonasi Kawasan Taman Nasional (batas administrasi Juli 2021)",
+        "source_url": None,
+    },
+    {
+        # Zona di dalam tiap taman nasional (inti, rimba, pemanfaatan, dst.), dari
+        # berkas yang sama. Bukan lapisan peringkat sendiri: rinciannya tampil di
+        # bagian taman nasional (lihat "parent").
+        "id": "zonasi_tn",
+        "label": "Zonasi taman nasional",
+        "path": "context/zonasi_tn.geojson",
+        "name_field": "zona",
+        "group_field": "kawasan",
+        "group_label": "Taman nasional",
+        "parent": "taman_nasional",
+        "color": "#2a78d6",
+        "simplify_m": 120,
+        "source": "Ditjen KSDAE, Kementerian Lingkungan Hidup dan Kehutanan: Zonasi Kawasan Taman Nasional (batas administrasi Juli 2021)",
+        "source_url": None,
     },
 ]
 

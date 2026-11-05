@@ -325,6 +325,7 @@ def main(argv=None):
         ctx_meta.append({"id": l["id"], "label": l["label"], "color": l.get("color", "#888"),
                          "bit": 1 << i, "ranked": l["ranked"], "file": fname,
                          "group_label": l.get("group_label"), "source": l.get("source"),
+                         "parent": l.get("parent"), "zones_layer": l.get("zones_layer"),
                          "source_url": l.get("source_url"),
                          # riwayat harian per kawasan (relatif terhadap data/archive/)
                          "history": f"harian/{RW.PREFIX}{l['id']}.json"

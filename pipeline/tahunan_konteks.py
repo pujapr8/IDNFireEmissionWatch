@@ -20,6 +20,9 @@ Hasil, satu file per lapisan bernama: data/archive/harian/tahunan_<id>.json
                                   Nilai bulan ke-m = lokasi unik 1 Jan s.d. akhir
                                   bulan m; nilai terakhir = total setahun (atau
                                   s.d. tanggal terakhir untuk tahun berjalan).
+                    nz[sat][conf] {nama: {zona: [akumulasi per bulan]}} bila lapisan
+                                  punya "zones_layer" (mis. zonasi taman nasional);
+                                  zona = zona tempat titik wakil berada.
 
 Aturan sama dengan index.html (buildHistH + selectRows + dedup): baris dengan
 provinsi tak dikenal dilewati; tiap sel diwakili titik dengan FRP terbesar
@@ -41,7 +44,7 @@ from . import config as C
 from . import harian as HR
 
 log = logging.getLogger("tahunan_konteks")
-VERSION = 1
+VERSION = 2
 PREFIX = "tahunan_"
 COMBOS = (("all", "nh"), ("all", "h"), ("ref", "nh"), ("ref", "h"))
 
@@ -50,10 +53,12 @@ def out_path(layer_id: str):
     return HR.DAY_DIR / f"{PREFIX}{layer_id}.json"
 
 
-def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
-    """Akumulasi lokasi unik per kawasan per akhir bulan untuk satu tahun."""
+def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int, zones_id: str | None = None):
+    """Akumulasi lokasi unik per kawasan (dan per zona) per akhir bulan untuk satu tahun."""
     cells, flags, frps, parks, months = array("q"), array("b"), array("d"), array("h"), array("b")
+    zones = array("h")
     names, name_idx, groups = [], {}, {}
+    znames, zname_idx = [], {}
     first = last = None
     for p in files:  # urut tanggal
         obj = json.loads(p.read_text(encoding="utf-8"))
@@ -63,6 +68,9 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
         cn = (obj.get("ctx_names") or {}).get(layer_id)
         if cn is None:
             raise RuntimeError(f"{p.name} belum ditandai lapisan {layer_id}")
+        zn = (obj.get("ctx_names") or {}).get(zones_id) if zones_id else None
+        if zones_id and zn is None:
+            raise RuntimeError(f"{p.name} belum ditandai lapisan {zones_id}")
         m = int(p.stem[5:7]) - 1
         first = first or p.stem
         last = p.stem
@@ -80,7 +88,17 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
                 pk = name_idx[nm]
             else:
                 pk = -1
+            zk = -1
+            if zn is not None:
+                q = zn["idx"][j]
+                if q is not None and q >= 0:
+                    zname = zn["names"][q]
+                    if zname not in zname_idx:
+                        zname_idx[zname] = len(znames)
+                        znames.append(zname)
+                    zk = zname_idx[zname]
             frp = r[fi]
+            zones.append(zk)
             cells.append(int(r[ci]))
             flags.append((1 if int(r[si]) & ref_bit else 0) | (2 if int(r[hi]) else 0))
             frps.append(math.nan if frp is None else float(frp))
@@ -88,17 +106,20 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
             months.append(m)
     # Hanya sel yang pernah punya titik di dalam kawasan yang perlu diikuti
     relevant = {cells[i] for i in range(len(cells)) if parks[i] >= 0}
-    reps = {c: {} for c in COMBOS}    # combo -> sel -> [frp, kawasan wakil]
+    reps = {c: {} for c in COMBOS}    # combo -> sel -> [frp, kawasan wakil, zona wakil]
     snaps = {c: [] for c in COMBOS}   # combo -> [ {kawasan: lokasi unik s.d. akhir bulan m} ]
+    zsnaps = {c: [] for c in COMBOS}  # combo -> [ {(kawasan, zona): lokasi unik} ]
     n_months = int(last[5:7]) if last else 0
 
     def snapshot():
         for c in COMBOS:
-            cnt = defaultdict(int)
-            for _, pk in reps[c].values():
+            cnt, zcnt = defaultdict(int), defaultdict(int)
+            for _, pk, zk in reps[c].values():
                 if pk >= 0:
                     cnt[pk] += 1
+                    zcnt[(pk, zk)] += 1
             snaps[c].append(cnt)
+            zsnaps[c].append(zcnt)
 
     cur = 0
     for i in range(len(cells)):
@@ -108,7 +129,7 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
         c_id = cells[i]
         if c_id not in relevant:
             continue
-        fl, frp, pk = flags[i], frps[i], parks[i]
+        fl, frp, pk, zk = flags[i], frps[i], parks[i], zones[i]
         for combo in COMBOS:
             sat, conf = combo
             if sat == "ref" and not fl & 1:
@@ -118,7 +139,7 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
             rp = reps[combo]
             e = rp.get(c_id)
             if e is None or not (frp <= e[0]):  # sama dengan dedup() di dashboard
-                rp[c_id] = [frp, pk]
+                rp[c_id] = [frp, pk, zk]
     while cur < n_months:
         snapshot()
         cur += 1
@@ -127,7 +148,20 @@ def _year_counts(files, prov_ok: set, layer_id: str, ref_bit: int):
         sn = snaps[(sat, conf)]
         pks = {pk for d in sn for pk in d}
         n.setdefault(sat, {})[conf] = {names[pk]: [d.get(pk, 0) for d in sn] for pk in sorted(pks)}
-    return {"first": first, "last": last, "days": len(files), "n": n, "groups": groups}
+    out = {"first": first, "last": last, "days": len(files), "n": n, "groups": groups}
+    if zones_id:
+        nz = {}
+        for sat, conf in COMBOS:
+            zs = zsnaps[(sat, conf)]
+            keys = {k for d in zs for k in d}
+            d = {}
+            for pk, zk in sorted(keys):
+                # titik di dalam kawasan tetapi di luar semua zona (mestinya tidak ada)
+                zlabel = znames[zk] if zk >= 0 else ""
+                d.setdefault(names[pk], {})[zlabel] = [m.get((pk, zk), 0) for m in zs]
+            nz.setdefault(sat, {})[conf] = d
+        out["nz"] = nz
+    return out
 
 
 def run(ctx_layers=None, provinces=None, rebuild: bool = False) -> list[str]:
@@ -138,7 +172,9 @@ def run(ctx_layers=None, provinces=None, rebuild: bool = False) -> list[str]:
         ctx_layers = F.load_context_layers()
     if provinces is None:
         provinces = F.load_provinces()
-    ranked = [l for l in ctx_layers if l["ranked"]]
+    # Lapisan anak (mis. zonasi taman nasional) dihitung bersama induknya
+    ranked = [l for l in ctx_layers if l["ranked"] and not l.get("parent")]
+    by_id = {l["id"]: l for l in ctx_layers}
     changed = []
     ids = {l["id"] for l in ranked}
     for p in HR.DAY_DIR.glob(f"{PREFIX}*.json"):  # lapisan yang sudah dihapus
@@ -149,7 +185,11 @@ def run(ctx_layers=None, provinces=None, rebuild: bool = False) -> list[str]:
         return changed
     prov_ok = set(provinces["prov_name"])
     ref_bit = C.SATELLITES[C.REF_SATELLITE]["bit"]
-    sigs = {s["id"]: s["sha1"] for s in signature(ranked)}
+    zones_of = {l["id"]: (l.get("zones_layer") if l.get("zones_layer") in by_id else None) for l in ranked}
+    sig_layers = ranked + [by_id[z] for z in set(zones_of.values()) if z]
+    raw_sigs = {s["id"]: s["sha1"] for s in signature(sig_layers)}
+    # tanda tangan lapisan = isi berkas kawasan (+ berkas zonanya)
+    sigs = {lid: raw_sigs[lid] + (":" + raw_sigs[z] if z else "") for lid, z in zones_of.items()}
 
     by_year = defaultdict(list)
     for p in sorted(HR.DAY_DIR.glob("*/*.json")):
@@ -187,7 +227,7 @@ def run(ctx_layers=None, provinces=None, rebuild: bool = False) -> list[str]:
             if prev and prev.get("sig") == ysig:
                 years[y] = prev
                 continue
-            res = _year_counts(files, prov_ok, lid, ref_bit)
+            res = _year_counts(files, prov_ok, lid, ref_bit, zones_of[lid])
             groups.update(res.pop("groups"))
             res["sig"] = ysig
             years[y] = res

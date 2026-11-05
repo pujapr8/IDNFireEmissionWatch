@@ -100,7 +100,8 @@ def run(ctx_layers=None, rebuild: bool = False) -> list[str]:
     bernama. Kembalikan file yang berubah."""
     from .retag_konteks import signature
     ctx_layers = ctx_layers if ctx_layers is not None else F.load_context_layers()
-    ranked = [l for l in ctx_layers if l["ranked"]]
+    # Lapisan anak (mis. zonasi taman nasional) tidak dibuatkan riwayat sendiri
+    ranked = [l for l in ctx_layers if l["ranked"] and not l.get("parent")]
     changed = []
     # Lapisan yang sudah dihapus dari config: buang riwayatnya
     ids = {l["id"] for l in ranked}
